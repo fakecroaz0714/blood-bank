@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+
+{% block title %}Emergency Blood Requests - BloodConnect{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+    <!-- Header Section -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold mb-1 d-flex align-items-center gap-2">
+                <i class="bi bi-heart-pulse-fill text-danger"></i> Emergency Blood Requests
+            </h3>
+            <p class="text-muted small mb-0">Browse real-time blood requirements from hospitals and families</p>
+        </div>
+        <div>
+            <a href="{{ url_for('emergency_request_new') }}" class="btn btn-blood fw-bold rounded-pill px-4">
+                <i class="bi bi-plus-circle-fill me-1"></i> Post New Request
+            </a>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-3">
+            <form action="{{ url_for('requests_list') }}" method="GET" class="row g-2 align-items-center">
+                <div class="col-md-3">
+                    <select name="blood_group" class="form-select form-select-sm fw-semibold">
+                        <option value="">All Blood Groups</option>
+                        {% for bg in ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'] %}
+                            <option value="{{ bg }}" {% if selected_blood_group == bg %}selected{% endif %}>{{ bg }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <input type="text" name="city" class="form-control form-control-sm" placeholder="Filter by City..." value="{{ selected_city }}">
+                </div>
+                <div class="col-md-2">
+                    <select name="urgency" class="form-select form-select-sm">
+                        <option value="">All Urgency</option>
+                        <option value="Critical" {% if selected_urgency == 'Critical' %}selected{% endif %}>Critical</option>
+                        <option value="Urgent" {% if selected_urgency == 'Urgent' %}selected{% endif %}>Urgent</option>
+                        <option value="Normal" {% if selected_urgency == 'Normal' %}selected{% endif %}>Normal</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select name="status" class="form-select form-select-sm">
+                        <option value="">All Statuses</option>
+                        <option value="Open" {% if selected_status == 'Open' %}selected{% endif %}>Open Only</option>
+                        <option value="Fulfilled" {% if selected_status == 'Fulfilled' %}selected{% endif %}>Fulfilled</option>
+                        <option value="Closed" {% if selected_status == 'Closed' %}selected{% endif %}>Closed</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-sm btn-dark w-100 fw-bold">
+                        <i class="bi bi-funnel"></i> Filter
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Requests Grid -->
+    {% if requests %}
+        <div class="row g-4">
+            {% for req in requests %}
+                <div class="col-md-6 col-lg-4">
+                    <div class="bc-card h-100 p-4 d-flex flex-column border-top border-4 {{ 'border-danger' if req.urgency == 'Critical' else ('border-warning' if req.urgency == 'Urgent' else 'border-primary') }}">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div class="blood-badge">{{ req.blood_group }}</div>
+                            <div class="d-flex flex-column align-items-end gap-1">
+                                <span class="status-pill urgency-{{ req.urgency.lower() }}">
+                                    <i class="bi bi-lightning-charge-fill"></i> {{ req.urgency }}
+                                </span>
+                                <span class="badge {{ 'bg-success' if req.status == 'Open' else ('bg-info' if req.status == 'Fulfilled' else 'bg-secondary') }}">
+                                    {{ req.status }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <h5 class="fw-bold mb-1 text-dark">{{ req.patient_name }}</h5>
+                        <div class="small text-muted mb-2">
+                            <i class="bi bi-hospital text-danger me-1"></i> {{ req.hospital }}
+                        </div>
+                        <div class="small text-secondary mb-3">
+                            <i class="bi bi-geo-alt text-danger me-1"></i> {{ req.city }}
+                        </div>
+
+                        <p class="small text-muted flex-grow-1 mb-3">
+                            {{ req.notes or 'No additional notes provided.' }}
+                        </p>
+
+                        <div class="bg-light p-2 rounded-3 small mb-3 d-flex justify-content-between">
+                            <span>Units Required:</span>
+                            <strong class="text-danger">{{ req.units_needed }} Bag(s)</strong>
+                        </div>
+
+                        <div class="pt-2 border-top d-flex justify-content-between align-items-center">
+                            <span class="small text-muted">{{ req.created_at[:10] }}</span>
+                            <a href="{{ url_for('request_details', req_id=req.id) }}" class="btn btn-sm btn-blood rounded-pill px-3">
+                                View Details & Donors <i class="bi bi-arrow-right"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="card border-0 shadow-sm rounded-4 p-5 text-center">
+            <i class="bi bi-inbox text-muted fs-1 mb-2"></i>
+            <h5 class="fw-bold">No Blood Requests Found</h5>
+            <p class="text-muted small">No emergency requests match your chosen filter criteria.</p>
+            <div>
+                <a href="{{ url_for('requests_list') }}" class="btn btn-sm btn-outline-secondary">Reset Filters</a>
+            </div>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}

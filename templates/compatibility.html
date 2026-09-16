@@ -1,0 +1,205 @@
+{% extends 'base.html' %}
+
+{% block title %}Blood Compatibility Guide - BloodConnect{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+
+            <div class="text-center mb-5">
+                <span class="badge bg-danger px-3 py-2 rounded-pill fw-bold mb-2">EDUCATIONAL GUIDE</span>
+                <h2 class="fw-bold">Interactive Blood Compatibility Checker</h2>
+                <p class="text-muted mx-auto" style="max-width: 650px;">
+                    Select any blood group below to instantly see who they can safely donate blood to, and whose blood they can receive during a transfusion.
+                </p>
+            </div>
+
+            <!-- Group Selector Buttons -->
+            <div class="card border-0 shadow-sm rounded-4 p-4 mb-4 text-center">
+                <h6 class="fw-bold text-secondary text-uppercase small mb-3">Click a Blood Group to Check:</h6>
+                <div class="d-flex flex-wrap justify-content-center gap-2" id="bloodGroupButtons">
+                    {% for bg in ['O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+'] %}
+                        <button type="button" class="btn btn-outline-danger fw-bold px-4 py-2 rounded-pill btn-compat-select {% if bg == 'O+' %}active{% endif %}" onclick="selectBloodGroup('{{ bg }}')">
+                            {{ bg }}
+                        </button>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Dynamic Result Card -->
+            <div class="row g-4 mb-5">
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-white border-top border-4 border-success">
+                        <div class="d-flex align-items-center gap-3 mb-3">
+                            <div class="bg-success text-white rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 44px; height: 44px;">
+                                <i class="bi bi-box-arrow-right fs-4"></i>
+                            </div>
+                            <div>
+                                <h5 class="fw-bold mb-0">Can DONATE To:</h5>
+                                <span class="small text-muted">Eligible recipients for this group</span>
+                            </div>
+                        </div>
+                        <div id="canDonateTo" class="d-flex flex-wrap gap-2 pt-2">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-white border-top border-4 border-primary">
+                        <div class="d-flex align-items-center gap-3 mb-3">
+                            <div class="bg-primary text-white rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 44px; height: 44px;">
+                                <i class="bi bi-box-arrow-in-left fs-4"></i>
+                            </div>
+                            <div>
+                                <h5 class="fw-bold mb-0">Can RECEIVE From:</h5>
+                                <span class="small text-muted">Eligible donors for this patient</span>
+                            </div>
+                        </div>
+                        <div id="canReceiveFrom" class="d-flex flex-wrap gap-2 pt-2">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Full Reference Table -->
+            <div class="card border-0 shadow-sm rounded-4 p-4">
+                <h5 class="fw-bold mb-3">Complete Blood Compatibility Reference Matrix</h5>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover text-center align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Blood Type</th>
+                                <th>Gives Blood To</th>
+                                <th>Receives Blood From</th>
+                                <th>Special Trait</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="table-danger">
+                                <td><strong>O-</strong></td>
+                                <td><strong>Everyone (Universal Donor)</strong></td>
+                                <td>O- only</td>
+                                <td><span class="badge bg-danger">Universal Red Cell Donor</span></td>
+                            </tr>
+                            <tr>
+                                <td><strong>O+</strong></td>
+                                <td>O+, A+, B+, AB+</td>
+                                <td>O+, O-</td>
+                                <td><span class="badge bg-secondary">Most Common Group</span></td>
+                            </tr>
+                            <tr>
+                                <td><strong>A-</strong></td>
+                                <td>A-, A+, AB-, AB+</td>
+                                <td>A-, O-</td>
+                                <td><span class="badge bg-light text-dark border">Rare</span></td>
+                            </tr>
+                            <tr>
+                                <td><strong>A+</strong></td>
+                                <td>A+, AB+</td>
+                                <td>A+, A-, O+, O-</td>
+                                <td><span class="badge bg-secondary">High Demand</span></td>
+                            </tr>
+                            <tr>
+                                <td><strong>B-</strong></td>
+                                <td>B-, B+, AB-, AB+</td>
+                                <td>B-, O-</td>
+                                <td><span class="badge bg-light text-dark border">Rare</span></td>
+                            </tr>
+                            <tr>
+                                <td><strong>B+</strong></td>
+                                <td>B+, AB+</td>
+                                <td>B+, B-, O+, O-</td>
+                                <td><span class="badge bg-secondary">High Demand</span></td>
+                            </tr>
+                            <tr>
+                                <td><strong>AB-</strong></td>
+                                <td>AB-, AB+</td>
+                                <td>AB-, A-, B-, O-</td>
+                                <td><span class="badge bg-info text-dark">Universal Plasma Donor</span></td>
+                            </tr>
+                            <tr class="table-primary">
+                                <td><strong>AB+</strong></td>
+                                <td>AB+ only</td>
+                                <td><strong>Everyone (Universal Recipient)</strong></td>
+                                <td><span class="badge bg-primary">Universal Recipient</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const compatibilityRules = {
+    'O-': {
+        give: ['O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+'],
+        receive: ['O-']
+    },
+    'O+': {
+        give: ['O+', 'A+', 'B+', 'AB+'],
+        receive: ['O+', 'O-']
+    },
+    'A-': {
+        give: ['A-', 'A+', 'AB-', 'AB+'],
+        receive: ['A-', 'O-']
+    },
+    'A+': {
+        give: ['A+', 'AB+'],
+        receive: ['A+', 'A-', 'O+', 'O-']
+    },
+    'B-': {
+        give: ['B-', 'B+', 'AB-', 'AB+'],
+        receive: ['B-', 'O-']
+    },
+    'B+': {
+        give: ['B+', 'AB+'],
+        receive: ['B+', 'B-', 'O+', 'O-']
+    },
+    'AB-': {
+        give: ['AB-', 'AB+'],
+        receive: ['AB-', 'A-', 'B-', 'O-']
+    },
+    'AB+': {
+        give: ['AB+'],
+        receive: ['O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+']
+    }
+};
+
+function selectBloodGroup(bg) {
+    document.querySelectorAll('.btn-compat-select').forEach(btn => {
+        if (btn.textContent.trim() === bg) {
+            btn.classList.add('active', 'btn-danger');
+            btn.classList.remove('btn-outline-danger');
+        } else {
+            btn.classList.remove('active', 'btn-danger');
+            btn.classList.add('btn-outline-danger');
+        }
+    });
+
+    const info = compatibilityRules[bg];
+    const donateContainer = document.getElementById('canDonateTo');
+    const receiveContainer = document.getElementById('canReceiveFrom');
+
+    donateContainer.innerHTML = info.give.map(g => `
+        <span class="blood-badge blood-badge-sm">${g}</span>
+    `).join('');
+
+    receiveContainer.innerHTML = info.receive.map(g => `
+        <span class="blood-badge blood-badge-sm" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);">${g}</span>
+    `).join('');
+}
+
+// Initialize with O+
+document.addEventListener('DOMContentLoaded', () => {
+    selectBloodGroup('O+');
+});
+</script>
+{% endblock %}

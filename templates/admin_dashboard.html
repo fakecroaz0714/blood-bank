@@ -1,0 +1,271 @@
+{% extends 'base.html' %}
+
+{% block title %}Admin Control Panel - BloodConnect{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+    <!-- Admin Header -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-primary px-3 py-1">ADMINISTRATOR PORTAL</span>
+                <span class="badge bg-light text-dark border">System Control</span>
+            </div>
+            <h3 class="fw-bold mt-2 mb-0">System Overview & Management</h3>
+        </div>
+        <div>
+            <span class="text-muted small">Logged in as: <strong>{{ session.get('user_name') }}</strong> ({{ session.get('user_email') }})</span>
+        </div>
+    </div>
+
+    <!-- Admin Statistics Metrics -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3 col-6">
+            <div class="stat-card">
+                <div class="stat-icon red"><i class="bi bi-people-fill"></i></div>
+                <div>
+                    <div class="fs-3 fw-bold text-dark">{{ stats.total_donors }}</div>
+                    <div class="small text-muted fw-semibold">Total Donors</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stat-card">
+                <div class="stat-icon green"><i class="bi bi-patch-check-fill"></i></div>
+                <div>
+                    <div class="fs-3 fw-bold text-dark">{{ stats.verified_donors }}</div>
+                    <div class="small text-muted fw-semibold">Verified Donors</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stat-card">
+                <div class="stat-icon amber"><i class="bi bi-hourglass-split"></i></div>
+                <div>
+                    <div class="fs-3 fw-bold text-dark">{{ stats.pending_donors }}</div>
+                    <div class="small text-muted fw-semibold">Pending Verification</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stat-card">
+                <div class="stat-icon blue"><i class="bi bi-clipboard-pulse"></i></div>
+                <div>
+                    <div class="fs-3 fw-bold text-dark">{{ stats.open_requests }}</div>
+                    <div class="small text-muted fw-semibold">Open Blood Requests</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Navigation Tabs -->
+    <ul class="nav nav-pills mb-3 gap-2" id="adminTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active fw-bold" id="donors-tab" data-bs-toggle="tab" data-bs-target="#donors-tab-pane" type="button">
+                <i class="bi bi-person-lines-fill me-1"></i> Donors Directory ({{ donors|length }})
+                {% if stats.pending_donors > 0 %}
+                    <span class="badge bg-warning text-dark ms-1">{{ stats.pending_donors }} Pending</span>
+                {% endif %}
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-bold" id="requests-tab" data-bs-toggle="tab" data-bs-target="#requests-tab-pane" type="button">
+                <i class="bi bi-heart-pulse me-1"></i> Blood Requests ({{ requests|length }})
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-bold" id="users-tab" data-bs-toggle="tab" data-bs-target="#users-tab-pane" type="button">
+                <i class="bi bi-person-gear me-1"></i> All User Accounts ({{ users|length }})
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="adminTabContent">
+
+        <!-- TAB 1: DONORS MANAGEMENT & VERIFICATION -->
+        <div class="tab-pane fade show active" id="donors-tab-pane">
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-header bg-white py-3 px-4 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold mb-0">Registered Volunteer Donors</h5>
+                    <span class="small text-muted">Click Verify button to toggle donor visibility in public search</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Donor Name & Email</th>
+                                <th>Blood</th>
+                                <th>Location</th>
+                                <th>Contact</th>
+                                <th>Availability</th>
+                                <th>Verification</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for donor in donors %}
+                                <tr>
+                                    <td>
+                                        <strong class="text-dark">{{ donor.name }}</strong>
+                                        <div class="small text-muted">{{ donor.email }}</div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-danger fs-6">{{ donor.blood_group }}</span>
+                                    </td>
+                                    <td class="small">
+                                        <div><strong>{{ donor.city }}</strong></div>
+                                        <div class="text-muted text-truncate" style="max-width: 160px;">{{ donor.address or 'N/A' }}</div>
+                                    </td>
+                                    <td class="small font-monospace">{{ donor.phone }}</td>
+                                    <td>
+                                        {% if donor.is_available %}
+                                            <span class="badge bg-success">Available</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Unavailable</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if donor.is_verified %}
+                                            <span class="badge bg-primary"><i class="bi bi-check-circle me-1"></i> Verified</span>
+                                        {% else %}
+                                            <span class="badge bg-warning text-dark"><i class="bi bi-hourglass me-1"></i> Unverified</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="d-inline-flex gap-2">
+                                            <form action="{{ url_for('admin_verify_donor', donor_id=donor.id) }}" method="POST" class="d-inline">
+                                                {% if donor.is_verified %}
+                                                    <button type="submit" class="btn btn-sm btn-outline-warning" title="Revoke Verification">
+                                                        <i class="bi bi-x-circle me-1"></i> Revoke
+                                                    </button>
+                                                {% else %}
+                                                    <button type="submit" class="btn btn-sm btn-success" title="Approve & Verify">
+                                                        <i class="bi bi-check-lg me-1"></i> Approve
+                                                    </button>
+                                                {% endif %}
+                                            </form>
+                                            <form action="{{ url_for('admin_delete_donor', donor_id=donor.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this donor account?');">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Donor">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: REQUESTS MANAGEMENT -->
+        <div class="tab-pane fade" id="requests-tab-pane">
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-header bg-white py-3 px-4 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold mb-0">Emergency Blood Requests</h5>
+                    <span class="small text-muted">Manage status from Open to Fulfilled or Closed</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Patient & Hospital</th>
+                                <th>Group</th>
+                                <th>Units</th>
+                                <th>Urgency</th>
+                                <th>Status</th>
+                                <th>Update Status</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for req in requests %}
+                                <tr>
+                                    <td>
+                                        <a href="{{ url_for('request_details', req_id=req.id) }}" class="fw-bold text-dark text-decoration-none">
+                                            {{ req.patient_name }}
+                                        </a>
+                                        <div class="small text-muted"><i class="bi bi-hospital"></i> {{ req.hospital }}, {{ req.city }}</div>
+                                        <div class="small text-secondary font-monospace"><i class="bi bi-telephone"></i> {{ req.contact_phone }}</div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-danger">{{ req.blood_group }}</span>
+                                    </td>
+                                    <td><strong>{{ req.units_needed }}</strong></td>
+                                    <td>
+                                        <span class="status-pill urgency-{{ req.urgency.lower() }}">{{ req.urgency }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge {{ 'bg-success' if req.status == 'Open' else ('bg-info' if req.status == 'Fulfilled' else 'bg-secondary') }}">
+                                            {{ req.status }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <form action="{{ url_for('admin_update_request_status', req_id=req.id) }}" method="POST" class="d-flex gap-1">
+                                            <select name="status" class="form-select form-select-sm" style="width: 110px;">
+                                                <option value="Open" {% if req.status == 'Open' %}selected{% endif %}>Open</option>
+                                                <option value="Fulfilled" {% if req.status == 'Fulfilled' %}selected{% endif %}>Fulfilled</option>
+                                                <option value="Closed" {% if req.status == 'Closed' %}selected{% endif %}>Closed</option>
+                                            </select>
+                                            <button type="submit" class="btn btn-sm btn-dark">Set</button>
+                                        </form>
+                                    </td>
+                                    <td class="text-end">
+                                        <form action="{{ url_for('admin_delete_request', req_id=req.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this blood request?');">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: USER ACCOUNTS -->
+        <div class="tab-pane fade" id="users-tab-pane">
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-header bg-white py-3 px-4">
+                    <h5 class="fw-bold mb-0">All System Users</h5>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>User ID</th>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Phone</th>
+                                <th>Role</th>
+                                <th>Registered On</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for u in users %}
+                                <tr>
+                                    <td>#{{ u.id }}</td>
+                                    <td><strong>{{ u.name }}</strong></td>
+                                    <td>{{ u.email }}</td>
+                                    <td>{{ u.phone }}</td>
+                                    <td>
+                                        <span class="badge {{ 'bg-danger' if u.role == 'donor' else ('bg-success' if u.role == 'requester' else 'bg-dark') }} text-capitalize">
+                                            {{ u.role }}
+                                        </span>
+                                    </td>
+                                    <td class="small text-muted">{{ u.created_at }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

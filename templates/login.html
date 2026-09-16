@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block title %}Log In - BloodConnect{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+
+            <!-- Viva Quick-Demo Card -->
+            <div class="viva-box shadow-sm mb-4">
+                <div class="viva-title d-flex align-items-center justify-content-between">
+                    <span><i class="bi bi-mortarboard-fill text-danger me-1"></i> Viva & Demo Quick Login</span>
+                    <span class="badge bg-secondary">1-Click</span>
+                </div>
+                <p class="small text-muted mb-2">Test role-specific workflows without typing:</p>
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('quick_login', role='admin') }}" class="btn btn-sm btn-outline-dark text-start d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-shield-lock-fill text-primary me-2"></i><strong>Admin Account</strong> (admin@bloodconnect.org)</span>
+                        <i class="bi bi-arrow-right-short"></i>
+                    </a>
+                    <a href="{{ url_for('quick_login', role='donor') }}" class="btn btn-sm btn-outline-dark text-start d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-person-badge-fill text-danger me-2"></i><strong>Donor Account</strong> (donor@bloodconnect.org - O+)</span>
+                        <i class="bi bi-arrow-right-short"></i>
+                    </a>
+                    <a href="{{ url_for('quick_login', role='requester') }}" class="btn btn-sm btn-outline-dark text-start d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-person-fill text-success me-2"></i><strong>Requester Account</strong> (requester@bloodconnect.org)</span>
+                        <i class="bi bi-arrow-right-short"></i>
+                    </a>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-header bg-white border-0 pt-4 px-4 text-center">
+                    <div class="blood-badge blood-badge-sm mx-auto mb-2"><i class="bi bi-droplet-fill"></i></div>
+                    <h4 class="fw-bold mb-1">Welcome Back</h4>
+                    <p class="text-muted small">Sign in to your BloodConnect account</p>
+                </div>
+
+                <div class="card-body p-4 pt-2">
+                    <form action="{{ url_for('login') }}" method="POST">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Email Address</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-secondary"><i class="bi bi-envelope"></i></span>
+                                <input type="email" name="email" id="loginEmail" class="form-control" placeholder="name@example.com" required>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Password</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-secondary"><i class="bi bi-key"></i></span>
+                                <input type="password" name="password" id="loginPassword" class="form-control" placeholder="••••••••" required>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-blood w-100 py-2 fw-bold mt-2">
+                            <i class="bi bi-box-arrow-in-right me-1"></i> Sign In
+                        </button>
+                    </form>
+
+                    <div class="text-center mt-4 pt-3 border-top">
+                        <span class="text-muted small">Don't have an account?</span>
+                        <a href="{{ url_for('register') }}" class="fw-bold text-danger small ms-1">Register now</a>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+
+{% block title %}Post Emergency Blood Request - BloodConnect{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-header bg-danger text-white p-4">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="bg-white text-danger rounded-circle p-3 d-flex align-items-center justify-content-center" style="width: 54px; height: 54px;">
+                            <i class="bi bi-megaphone-fill fs-4"></i>
+                        </div>
+                        <div>
+                            <h3 class="fw-bold mb-1">Post Emergency Blood Request</h3>
+                            <p class="mb-0 opacity-75 small">Broadcast an urgent requirement to nearby registered blood donors</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body p-4">
+                    <div class="alert alert-warning border-0 d-flex align-items-center gap-2 mb-4">
+                        <i class="bi bi-exclamation-triangle-fill fs-4 text-warning"></i>
+                        <div class="small">
+                            <strong>Emergency Notice:</strong> Verified donors matching this blood group and city will receive in-app emergency notifications automatically.
+                        </div>
+                    </div>
+
+                    <form action="{{ url_for('emergency_request_new') }}" method="POST">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Patient Name *</label>
+                                <input type="text" name="patient_name" class="form-control" placeholder="Patient's Full Name" required>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Required Blood Group *</label>
+                                <select name="blood_group" class="form-select fw-bold text-danger" required>
+                                    <option value="">Select Blood Group</option>
+                                    {% for bg in ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'] %}
+                                        <option value="{{ bg }}">{{ bg }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Units Needed (Pints/Bags) *</label>
+                                <input type="number" name="units_needed" class="form-control" min="1" max="20" value="1" required>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Urgency Level *</label>
+                                <select name="urgency" class="form-select fw-semibold" required>
+                                    <option value="Urgent">Urgent (Within 24 Hours)</option>
+                                    <option value="Critical">Critical (Immediate / Operation Theatre)</option>
+                                    <option value="Normal">Normal (Elective / Planned Surgery)</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Hospital Name *</label>
+                                <input type="text" name="hospital" class="form-control" placeholder="e.g. Apollo Hospital, Greams Road" required>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">City / Location *</label>
+                                <input type="text" name="city" class="form-control" placeholder="e.g. Chennai" required>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Emergency Contact Phone *</label>
+                                <input type="tel" name="contact_phone" class="form-control" placeholder="e.g. +91 98401 23456" value="{{ user_phone or '' }}" required>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label small fw-bold">Additional Notes / Medical Case Details</label>
+                                <textarea name="notes" class="form-control" rows="3" placeholder="Specify ward number, doctor name, replacement requirements, or special component needs (Platelets, Plasma, Whole Blood)..."></textarea>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 pt-3 border-top d-flex justify-content-between align-items-center">
+                            <a href="{{ url_for('requests_list') }}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-1"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-blood px-4 fw-bold">
+                                <i class="bi bi-send-fill me-1"></i> Submit Emergency Request
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

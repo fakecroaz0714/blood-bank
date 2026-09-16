@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+
+{% block title %}Request Details - {{ req.patient_name }} ({{ req.blood_group }}){% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row g-4">
+        <!-- Request Main Overview -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm rounded-4 p-4 h-100">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div class="blood-badge blood-badge-lg">{{ req.blood_group }}</div>
+                    <div class="text-end">
+                        <span class="status-pill urgency-{{ req.urgency.lower() }} mb-1 d-inline-block">
+                            <i class="bi bi-lightning-charge-fill"></i> {{ req.urgency }} Urgency
+                        </span>
+                        <div>
+                            <span class="badge {{ 'bg-success' if req.status == 'Open' else ('bg-info' if req.status == 'Fulfilled' else 'bg-secondary') }} px-3 py-2 fs-6">
+                                Status: {{ req.status }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 class="fw-bold mb-1">{{ req.patient_name }}</h3>
+                <p class="text-muted small mb-4">Posted on {{ req.created_at }}</p>
+
+                <div class="bg-light p-3 rounded-4 mb-4">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <div class="small text-secondary">Required Group</div>
+                            <strong class="fs-5 text-danger">{{ req.blood_group }}</strong>
+                        </div>
+                        <div class="col-6">
+                            <div class="small text-secondary">Quantity Needed</div>
+                            <strong class="fs-5 text-dark">{{ req.units_needed }} Unit(s)</strong>
+                        </div>
+                        <div class="col-12 border-top pt-2">
+                            <div class="small text-secondary">Hospital Name</div>
+                            <strong class="text-dark"><i class="bi bi-hospital text-danger me-1"></i> {{ req.hospital }}</strong>
+                        </div>
+                        <div class="col-12">
+                            <div class="small text-secondary">City / Location</div>
+                            <strong class="text-dark"><i class="bi bi-geo-alt text-danger me-1"></i> {{ req.city }}</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <h6 class="fw-bold mb-2">Case Notes & Details</h6>
+                <p class="text-secondary small bg-white p-3 rounded-3 border mb-4">
+                    {{ req.notes or 'No special medical instructions provided.' }}
+                </p>
+
+                <!-- Emergency Contact CTA -->
+                <div class="p-3 bg-light rounded-4 border">
+                    <div class="small text-secondary mb-1">Direct Coordinator / Family Contact:</div>
+                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                        <a href="tel:{{ req.contact_phone }}" class="btn btn-blood fw-bold px-4 flex-grow-1">
+                            <i class="bi bi-telephone-fill me-1"></i> Call {{ req.contact_phone }}
+                        </a>
+                        <button type="button" class="btn btn-outline-secondary btn-copy-phone" data-phone="{{ req.contact_phone }}" title="Copy">
+                            <i class="bi bi-clipboard"></i>
+                        </button>
+                    </div>
+                </div>
+
+                {% if session.get('user_role') == 'admin' or session.get('user_id') == req.requester_id %}
+                    <div class="mt-4 pt-3 border-top">
+                        <h6 class="fw-bold small text-secondary">Manage Request Status</h6>
+                        <form action="{{ url_for('update_request_status', req_id=req.id) }}" method="POST" class="d-flex gap-2">
+                            <select name="status" class="form-select form-select-sm">
+                                <option value="Open" {% if req.status == 'Open' %}selected{% endif %}>Open</option>
+                                <option value="Fulfilled" {% if req.status == 'Fulfilled' %}selected{% endif %}>Fulfilled</option>
+                                <option value="Closed" {% if req.status == 'Closed' %}selected{% endif %}>Closed</option>
+                            </select>
+                            <button type="submit" class="btn btn-sm btn-dark">Update</button>
+                        </form>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Matching Donors Nearby Column -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm rounded-4 p-4 h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0 text-dark d-flex align-items-center gap-2">
+                        <i class="bi bi-person-check-fill text-danger"></i> Nearby Matching Donors
+                    </h5>
+                    <span class="badge bg-danger rounded-pill">{{ matching_donors|length }} Available</span>
+                </div>
+                <p class="text-muted small mb-4">
+                    Verified and available donors with blood group <strong>{{ req.blood_group }}</strong> located in <strong>{{ req.city }}</strong>:
+                </p>
+
+                {% if matching_donors %}
+                    <div class="d-flex flex-column gap-3">
+                        {% for donor in matching_donors %}
+                            <div class="p-3 border rounded-3 bg-light d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="d-flex align-items-center gap-2 mb-1">
+                                        <span class="badge bg-danger">{{ donor.blood_group }}</span>
+                                        <strong class="text-dark">{{ donor.name }}</strong>
+                                        <span class="badge bg-success small"><i class="bi bi-check"></i> Available</span>
+                                    </div>
+                                    <div class="small text-muted">
+                                        <i class="bi bi-geo-alt"></i> {{ donor.city }}{% if donor.address %}, {{ donor.address }}{% endif %}
+                                    </div>
+                                    <div class="small text-secondary mt-1">
+                                        Last Donated: {{ donor.last_donation_date or 'First-time donor' }}
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <a href="tel:{{ donor.phone }}" class="btn btn-sm btn-blood">
+                                        <i class="bi bi-telephone-fill"></i> Call
+                                    </a>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-light border text-center py-5">
+                        <i class="bi bi-exclamation-circle text-muted fs-2 d-block mb-2"></i>
+                        <h6 class="fw-bold">No Local Donors Found</h6>
+                        <p class="text-muted small mb-3">No verified and available {{ req.blood_group }} donors are currently listed in {{ req.city }}.</p>
+                        <a href="{{ url_for('search_donors', blood_group=req.blood_group) }}" class="btn btn-sm btn-outline-danger">
+                            Search All Cities for {{ req.blood_group }} Donors
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

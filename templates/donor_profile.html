@@ -1,0 +1,183 @@
+{% extends 'base.html' %}
+
+{% block title %}Donor Dashboard - BloodConnect{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row g-4">
+        <!-- Left Sidebar: Availability Switch & Quick Stats -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm rounded-4 p-4 mb-4 text-center">
+                <div class="blood-badge blood-badge-lg mx-auto mb-3">{{ donor.blood_group }}</div>
+                <h4 class="fw-bold mb-1">{{ donor.name }}</h4>
+                <p class="text-muted small mb-2"><i class="bi bi-envelope"></i> {{ donor.email }}</p>
+                <p class="text-muted small mb-3"><i class="bi bi-geo-alt"></i> {{ donor.city }}</p>
+
+                <!-- Verification Status -->
+                <div class="mb-4">
+                    {% if donor.is_verified %}
+                        <span class="status-pill status-verified px-3 py-1">
+                            <i class="bi bi-patch-check-fill"></i> Verified Volunteer Donor
+                        </span>
+                    {% else %}
+                        <span class="status-pill status-unverified px-3 py-1">
+                            <i class="bi bi-hourglass-split"></i> Awaiting Admin Verification
+                        </span>
+                    {% endif %}
+                </div>
+
+                <!-- Live Availability Toggle -->
+                <div class="p-3 bg-light rounded-3 border text-start">
+                    <label class="form-label small fw-bold text-uppercase text-secondary d-block mb-1">Donation Availability</label>
+                    <div class="switch-container justify-content-between">
+                        <span id="availabilityLabel" class="fw-bold {{ 'text-success' if donor.is_available else 'text-secondary' }}">
+                            {{ 'Available for Donation' if donor.is_available else 'Currently Unavailable' }}
+                        </span>
+                        <label class="switch">
+                            <input type="checkbox" id="availabilityToggle" {% if donor.is_available %}checked{% endif %}>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="form-text small mt-2">
+                        Turn off when you are unwell, traveling, or unable to donate.
+                    </div>
+                </div>
+
+                <div class="row text-center g-2 mt-3 pt-3 border-top">
+                    <div class="col-6">
+                        <div class="p-2 border rounded-3 bg-white">
+                            <div class="fs-4 fw-bold text-danger">{{ donor.total_donations }}</div>
+                            <div class="small text-muted">Donations</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="p-2 border rounded-3 bg-white">
+                            <div class="fs-4 fw-bold text-primary">{{ matching_requests|length }}</div>
+                            <div class="small text-muted">Nearby Alerts</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Medical Eligibility Card -->
+            <div class="card border-0 shadow-sm rounded-4 p-4">
+                <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                    <i class="bi bi-heart-pulse text-danger"></i> Medical Eligibility
+                </h5>
+                <div id="eligibilityResult"></div>
+                <div class="small text-muted mt-3">
+                    <i class="bi bi-info-circle me-1"></i> Medical guidelines require a 90-day (3-month) interval between whole blood donations to replenish iron stores.
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Side: Edit Profile & Matching Requests -->
+        <div class="col-lg-8">
+            <!-- Edit Profile Form -->
+            <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
+                <h5 class="fw-bold mb-3 text-dark d-flex align-items-center gap-2">
+                    <i class="bi bi-pencil-square text-danger"></i> Update Donor Profile
+                </h5>
+
+                <form action="{{ url_for('donor_profile') }}" method="POST">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Full Name</label>
+                            <input type="text" name="name" class="form-control" value="{{ donor.name }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Phone Number</label>
+                            <input type="tel" name="phone" class="form-control" value="{{ donor.phone }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Blood Group</label>
+                            <select name="blood_group" class="form-select fw-semibold" required>
+                                {% for bg in ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'] %}
+                                    <option value="{{ bg }}" {% if donor.blood_group == bg %}selected{% endif %}>{{ bg }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">City / Location</label>
+                            <input type="text" name="city" class="form-control" value="{{ donor.city }}" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">Detailed Street / Area Address</label>
+                            <input type="text" name="address" class="form-control" value="{{ donor.address or '' }}" placeholder="Area, landmark">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Last Donation Date</label>
+                            <input type="date" name="last_donation_date" id="lastDonationDateInput" class="form-control" value="{{ donor.last_donation_date or '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Total Previous Donations</label>
+                            <input type="number" name="total_donations" class="form-control" value="{{ donor.total_donations }}" min="0">
+                        </div>
+                    </div>
+
+                    <div class="mt-4 text-end">
+                        <button type="submit" class="btn btn-blood px-4 fw-bold">
+                            <i class="bi bi-check-lg me-1"></i> Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Matching Urgent Requests in Donor's City -->
+            <div class="card border-0 shadow-sm rounded-4 p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0 text-dark d-flex align-items-center gap-2">
+                        <i class="bi bi-bell-fill text-danger"></i> Urgent Requests for Your Blood Group ({{ donor.blood_group }})
+                    </h5>
+                    <span class="badge bg-danger rounded-pill">{{ matching_requests|length }} Matched</span>
+                </div>
+
+                {% if matching_requests %}
+                    <div class="table-responsive">
+                        <table class="table align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Patient</th>
+                                    <th>Hospital & City</th>
+                                    <th>Urgency</th>
+                                    <th>Units</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for req in matching_requests %}
+                                    <tr>
+                                        <td>
+                                            <strong class="text-dark">{{ req.patient_name }}</strong>
+                                        </td>
+                                        <td class="small">
+                                            <div>{{ req.hospital }}</div>
+                                            <span class="text-muted"><i class="bi bi-geo-alt"></i> {{ req.city }}</span>
+                                        </td>
+                                        <td>
+                                            <span class="status-pill urgency-{{ req.urgency.lower() }}">{{ req.urgency }}</span>
+                                        </td>
+                                        <td>
+                                            <span class="fw-bold text-danger">{{ req.units_needed }} Unit(s)</span>
+                                        </td>
+                                        <td>
+                                            <a href="{{ url_for('request_details', req_id=req.id) }}" class="btn btn-sm btn-outline-danger rounded-pill">
+                                                View & Respond
+                                            </a>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="alert alert-light border text-center py-4 mb-0">
+                        <i class="bi bi-check2-circle text-success fs-3 d-block mb-1"></i>
+                        No active urgent requests for <strong>{{ donor.blood_group }}</strong> in <strong>{{ donor.city }}</strong> right now.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

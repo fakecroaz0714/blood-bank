@@ -1,0 +1,202 @@
+{% extends 'base.html' %}
+
+{% block title %}Find Blood Donors - BloodConnect{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+    <!-- Search Header & Filters -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-4">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+                <div>
+                    <h3 class="fw-bold mb-1 d-flex align-items-center gap-2">
+                        <i class="bi bi-search-heart text-danger"></i> Find Blood Donors
+                    </h3>
+                    <p class="text-muted small mb-0">Search through our network of verified volunteers ready to save lives</p>
+                </div>
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-outline-secondary active" id="btnViewGrid" onclick="switchView('grid')">
+                        <i class="bi bi-grid-fill me-1"></i> List View
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" id="btnViewMap" onclick="switchView('map')">
+                        <i class="bi bi-map-fill me-1"></i> Map View
+                    </button>
+                </div>
+            </div>
+
+            <form action="{{ url_for('search_donors') }}" method="GET" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold">Blood Group</label>
+                    <select name="blood_group" class="form-select fw-semibold">
+                        <option value="">All Blood Groups</option>
+                        {% for bg in ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'] %}
+                            <option value="{{ bg }}" {% if selected_blood_group == bg %}selected{% endif %}>{{ bg }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold">City / Location</label>
+                    <input type="text" name="city" class="form-control" placeholder="Search city..." value="{{ selected_city }}">
+                </div>
+
+                <div class="col-md-2">
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="available_only" value="1" id="availCheck" {% if available_only %}checked{% endif %}>
+                        <label class="form-check-label small fw-bold" for="availCheck">Available Only</label>
+                    </div>
+                </div>
+
+                <div class="col-md-2">
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="verified_only" value="1" id="verifyCheck" {% if verified_only %}checked{% endif %}>
+                        <label class="form-check-label small fw-bold" for="verifyCheck">Verified Only</label>
+                    </div>
+                </div>
+
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-blood w-100 fw-bold">
+                        <i class="bi bi-funnel-fill me-1"></i> Apply Filter
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Map View Container (Hidden by default unless toggled) -->
+    <div id="mapViewContainer" class="mb-4" style="display: none;">
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+            <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-geo-alt-fill text-danger me-2"></i>Live Donors Geolocation Map</h5>
+                <span class="badge bg-danger rounded-pill">{{ donors|length }} Donor Pin(s) Available</span>
+            </div>
+            <div class="card-body p-0">
+                <div id="donorMap"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Section -->
+    <div id="gridViewContainer">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold mb-0">
+                Matching Donors <span class="badge bg-secondary rounded-pill ms-2">{{ donors|length }}</span>
+            </h5>
+            {% if selected_blood_group or selected_city %}
+                <a href="{{ url_for('search_donors') }}" class="btn btn-sm btn-link text-danger text-decoration-none">
+                    <i class="bi bi-x-circle"></i> Clear Filters
+                </a>
+            {% endif %}
+        </div>
+
+        {% if donors %}
+            <div class="row g-4">
+                {% for donor in donors %}
+                    <div class="col-md-6 col-lg-4">
+                        <div class="bc-card h-100 p-4 d-flex flex-column">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div class="blood-badge">{{ donor.blood_group }}</div>
+                                <div class="d-flex flex-column align-items-end gap-1">
+                                    {% if donor.is_verified %}
+                                        <span class="status-pill status-verified"><i class="bi bi-patch-check-fill"></i> Verified</span>
+                                    {% else %}
+                                        <span class="status-pill status-unverified"><i class="bi bi-hourglass-split"></i> Pending Verification</span>
+                                    {% endif %}
+
+                                    {% if donor.is_available %}
+                                        <span class="status-pill status-available"><i class="bi bi-circle-fill" style="font-size: 8px;"></i> Available</span>
+                                    {% else %}
+                                        <span class="status-pill status-unavailable"><i class="bi bi-slash-circle"></i> Unavailable</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <h5 class="fw-bold mb-1 text-dark">{{ donor.name }}</h5>
+                            <p class="small text-muted mb-2">
+                                <i class="bi bi-geo-alt-fill text-danger me-1"></i> {{ donor.city }}{% if donor.address %}, {{ donor.address }}{% endif %}
+                            </p>
+
+                            <!-- Donation Stats & Eligibility -->
+                            <div class="bg-light p-2 rounded-3 small mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-secondary">Total Donations:</span>
+                                    <strong class="text-dark">{{ donor.total_donations }} time(s)</strong>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span class="text-secondary">Last Donated:</span>
+                                    <strong class="text-dark">{{ donor.last_donation_date or 'First time' }}</strong>
+                                </div>
+                            </div>
+
+                            <div class="mt-auto pt-3 border-top d-flex gap-2">
+                                <a href="tel:{{ donor.phone }}" class="btn btn-blood btn-sm flex-grow-1">
+                                    <i class="bi bi-telephone-fill me-1"></i> Call {{ donor.phone }}
+                                </a>
+                                <button type="button" class="btn btn-outline-secondary btn-sm btn-copy-phone" data-phone="{{ donor.phone }}" title="Copy Phone">
+                                    <i class="bi bi-clipboard"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <!-- Empty State -->
+            <div class="card border-0 shadow-sm rounded-4 p-5 text-center">
+                <div class="mb-3">
+                    <div class="bg-light text-danger rounded-circle d-inline-flex align-items-center justify-content-center p-4">
+                        <i class="bi bi-search text-danger fs-1"></i>
+                    </div>
+                </div>
+                <h4 class="fw-bold">No Matching Donors Found</h4>
+                <p class="text-muted mx-auto" style="max-width: 500px;">
+                    We couldn't find any verified and available donors matching
+                    <strong>{% if selected_blood_group %}Group {{ selected_blood_group }}{% endif %}{% if selected_city %} in {{ selected_city }}{% endif %}</strong>.
+                </p>
+                <div class="d-flex justify-content-center gap-3 mt-3">
+                    <a href="{{ url_for('emergency_request_new') }}" class="btn btn-blood px-4">
+                        <i class="bi bi-megaphone-fill me-1"></i> Post an Emergency Blood Request
+                    </a>
+                    <a href="{{ url_for('search_donors') }}" class="btn btn-outline-secondary px-4">
+                        Reset Filters
+                    </a>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let mapInitialized = false;
+
+function switchView(view) {
+    const gridContainer = document.getElementById('gridViewContainer');
+    const mapContainer = document.getElementById('mapViewContainer');
+    const btnGrid = document.getElementById('btnViewGrid');
+    const btnMap = document.getElementById('btnViewMap');
+
+    if (view === 'map') {
+        gridContainer.style.display = 'none';
+        mapContainer.style.display = 'block';
+        btnGrid.classList.remove('active');
+        btnMap.classList.add('active');
+
+        if (!mapInitialized) {
+            initDonorMap('donorMap', '{{ selected_blood_group }}', '{{ selected_city }}');
+            mapInitialized = true;
+        } else if (mapInstance) {
+            mapInstance.invalidateSize();
+        }
+    } else {
+        mapContainer.style.display = 'none';
+        gridContainer.style.display = 'block';
+        btnMap.classList.remove('active');
+        btnGrid.classList.add('active');
+    }
+}
+</script>
+{% endblock %}

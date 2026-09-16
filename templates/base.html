@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}BloodConnect - Online Blood Donor Finder & Emergency Requests{% endblock %}</title>
+    <!-- Google Fonts: Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+    <!-- Main Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-bloodconnect">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="bi bi-droplet-fill"></i>
+                <span>Blood<span style="color: #0f172a;">Connect</span></span>
+            </a>
+            
+            <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navbarMain">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-3">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">
+                            <i class="bi bi-house-door me-1"></i> Home
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'search_donors' %}active{% endif %}" href="{{ url_for('search_donors') }}">
+                            <i class="bi bi-search me-1"></i> Find Donors
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint in ['requests_list', 'emergency_request_new', 'request_details'] %}active{% endif %}" href="{{ url_for('requests_list') }}">
+                            <i class="bi bi-heart-pulse me-1"></i> Emergency Requests
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'compatibility' %}active{% endif %}" href="{{ url_for('compatibility') }}">
+                            <i class="bi bi-diagram-3 me-1"></i> Compatibility
+                        </a>
+                    </li>
+                </ul>
+
+                <ul class="navbar-nav align-items-center gap-2">
+                    <li class="nav-item">
+                        <a href="{{ url_for('emergency_request_new') }}" class="btn btn-sm btn-outline-danger fw-bold rounded-pill px-3 me-2">
+                            <i class="bi bi-plus-circle-fill me-1"></i> Post Emergency Request
+                        </a>
+                    </li>
+
+                    {% if session.get('user_id') %}
+                        <!-- Notifications -->
+                        <li class="nav-item me-2">
+                            <a href="{{ url_for('notifications_view') }}" class="btn btn-light position-relative border-0 rounded-circle p-2" title="Notifications">
+                                <i class="bi bi-bell-fill fs-5 text-secondary"></i>
+                                {% if unread_notif_count and unread_notif_count > 0 %}
+                                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                        {{ unread_notif_count }}
+                                    </span>
+                                {% endif %}
+                            </a>
+                        </li>
+
+                        <!-- User Dropdown -->
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle d-flex align-items-center gap-2 py-1 px-2 border rounded-pill bg-white" href="#" data-bs-toggle="dropdown">
+                                <div class="bg-danger text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; font-weight: 700; font-size: 0.85rem;">
+                                    {{ session.get('user_name', 'U')[0].upper() }}
+                                </div>
+                                <span class="fw-semibold text-truncate" style="max-width: 120px;">{{ session.get('user_name') }}</span>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2">
+                                <li class="dropdown-header">
+                                    Signed in as <strong class="text-capitalize">{{ session.get('user_role') }}</strong>
+                                </li>
+                                {% if session.get('user_role') == 'donor' %}
+                                    <li><a class="dropdown-item" href="{{ url_for('donor_profile') }}"><i class="bi bi-person-badge me-2 text-danger"></i> Donor Profile & Status</a></li>
+                                {% endif %}
+                                {% if session.get('user_role') == 'admin' %}
+                                    <li><a class="dropdown-item" href="{{ url_for('admin_dashboard') }}"><i class="bi bi-speedometer2 me-2 text-primary"></i> Admin Control Panel</a></li>
+                                {% endif %}
+                                <li><a class="dropdown-item" href="{{ url_for('requests_list') }}"><i class="bi bi-list-task me-2 text-secondary"></i> View Blood Requests</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="{{ url_for('logout') }}"><i class="bi bi-box-arrow-right me-2"></i> Log Out</a></li>
+                            </ul>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('login') }}">
+                                <i class="bi bi-box-arrow-in-right me-1"></i> Log In
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="btn btn-blood btn-sm rounded-pill px-3" href="{{ url_for('register') }}">
+                                <i class="bi bi-person-plus-fill me-1"></i> Register
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash Messages Container -->
+    <div class="container mt-3">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show shadow-sm d-flex align-items-center" role="alert">
+                        <i class="bi {{ 'bi-exclamation-triangle-fill' if category in ['danger', 'error'] else ('bi-check-circle-fill' if category == 'success' else 'bi-info-circle-fill') }} me-2 fs-5"></i>
+                        <div>{{ message }}</div>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- Main Content Block -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="row g-4">
+                <div class="col-lg-4">
+                    <h5 class="text-white fw-bold d-flex align-items-center gap-2 mb-3">
+                        <i class="bi bi-droplet-fill text-danger"></i> BloodConnect
+                    </h5>
+                    <p class="small text-muted mb-3">
+                        An Online Blood Donor Finder and Emergency Request System connecting life-saving donors with patients and hospitals in real-time.
+                    </p>
+                    <div class="d-flex gap-2">
+                        <span class="badge bg-danger">Open Source</span>
+                        <span class="badge bg-secondary">Flask + SQLite</span>
+                        <span class="badge bg-dark">Viva Ready</span>
+                    </div>
+                </div>
+                <div class="col-lg-2 col-6">
+                    <h6 class="text-white fw-bold mb-3">Quick Links</h6>
+                    <ul class="list-unstyled small">
+                        <li class="mb-2"><a href="{{ url_for('search_donors') }}">Find Donors</a></li>
+                        <li class="mb-2"><a href="{{ url_for('emergency_request_new') }}">Post Emergency Request</a></li>
+                        <li class="mb-2"><a href="{{ url_for('compatibility') }}">Blood Compatibility</a></li>
+                        <li class="mb-2"><a href="{{ url_for('register') }}">Become a Donor</a></li>
+                    </ul>
+                </div>
+                <div class="col-lg-2 col-6">
+                    <h6 class="text-white fw-bold mb-3">Viva Demo</h6>
+                    <ul class="list-unstyled small">
+                        <li class="mb-2"><a href="{{ url_for('quick_login', role='admin') }}">Admin Demo Access</a></li>
+                        <li class="mb-2"><a href="{{ url_for('quick_login', role='donor') }}">Donor Demo Access</a></li>
+                        <li class="mb-2"><a href="{{ url_for('quick_login', role='requester') }}">Requester Demo</a></li>
+                        <li class="mb-2"><a href="{{ url_for('requests_list') }}">Live Blood Feed</a></li>
+                    </ul>
+                </div>
+                <div class="col-lg-4">
+                    <h6 class="text-white fw-bold mb-3">Emergency Helpline</h6>
+                    <p class="small text-muted mb-2">
+                        National Blood Helpline (India): <strong>104 / 1910</strong><br>
+                        Emergency Ambulance: <strong>108</strong>
+                    </p>
+                    <div class="p-2 rounded bg-dark border border-secondary text-muted small">
+                        <i class="bi bi-shield-check text-success me-1"></i> All registered donors are verified by system administrators before matching.
+                    </div>
+                </div>
+            </div>
+            <hr class="border-secondary my-4">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-center small text-muted">
+                <div>&copy; 2026 BloodConnect System. Developed for Academic Project & Viva Presentation.</div>
+                <div class="mt-2 mt-md-0">Built with Python Flask, Bootstrap 5 & Leaflet OpenStreetMap.</div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- Custom Scripts -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/map.js') }}"></script>
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

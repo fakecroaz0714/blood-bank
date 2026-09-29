@@ -182,5 +182,66 @@ class BloodConnectTestCase(unittest.TestCase):
         self.assertIn('longitude', data[0])
         self.assertEqual(data[0]['blood_group'], 'O+')
 
+    def test_404_error_page(self):
+        """Non-existent URLs should return 404 with custom error page."""
+        res = self.client.get('/non-existent-route-testing-404')
+        self.assertEqual(res.status_code, 404)
+        self.assertIn(b'Page Not Found', res.data)
+
+    def test_requester_registration(self):
+        """Users can register as blood requesters without donor fields."""
+        res = self.client.post('/register', data={
+            'name': 'New Hospital Coordinator',
+            'email': 'coordinator@cityhospital.org',
+            'phone': '+91 97777 88888',
+            'password': 'password123',
+            'role': 'requester'
+        }, follow_redirects=True)
+        self.assertEqual(res.status_code, 200)
+        with app.app_context():
+            u = database.query_db("SELECT * FROM users WHERE email = 'coordinator@cityhospital.org'", one=True)
+            self.assertIsNotNone(u)
+            self.assertEqual(u['role'], 'requester')
+            d = database.query_db("SELECT * FROM donors WHERE user_id = ?", (u['id'],), one=True)
+            self.assertIsNone(d)
+
+    def test_donor_profile_update_resilience(self):
+        """Donor can update profile even if optional fields like total_donations are empty."""
+        self.client.get('/quick-login/donor')
+        res = self.client.post('/donor/profile', data={
+            'name': 'Rahul Sharma Updated',
+            'phone': '+91 98402 11223',
+            'blood_group': 'O+',
+            'city': 'Chennai',
+            'address': 'Anna Nagar West',
+            'last_donation_date': '2026-06-01',
+            'total_donations': '' # Empty string should not crash
+        }, follow_redirects=True)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(b'Donor profile updated successfully', res.data)
+
+    def test_notifications_read_flow(self):
+        """User can view and mark notifications as read."""
+        self.client.get('/quick-login/donor')
+        res = self.client.get('/notifications')
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(b'Notifications', res.data)
+
+        # Mark all as read
+        res_read_all = self.client.post('/notifications/mark-all-read', follow_redirects=True)
+        self.assertEqual(res_read_all.status_code, 200)
+        with app.app_context():
+            unread = database.query_db("SELECT COUNT(*) as cnt FROM notifications WHERE user_id = 3 AND is_read = 0", one=True)
+            self.assertEqual(unread['cnt'], 0)
+
+    def test_request_status_update_by_admin(self):
+        """Admin can update request status to Fulfilled."""
+        self.client.get('/quick-login/admin')
+        res = self.client.post('/admin/request/1/status', data={'status': 'Fulfilled'}, follow_redirects=True)
+        self.assertEqual(res.status_code, 200)
+        with app.app_context():
+            req = database.query_db("SELECT status FROM blood_requests WHERE id = 1", one=True)
+            self.assertEqual(req['status'], 'Fulfilled')
+
 if __name__ == '__main__':
     unittest.main()

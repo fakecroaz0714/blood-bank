@@ -96,7 +96,7 @@
                         </div>
 
                         <div class="pt-2 border-top d-flex justify-content-between align-items-center">
-                            <span class="small text-muted">{{ req.created_at[:10] }}</span>
+                            <span class="small text-muted">{{ (req.created_at|string)[:10] }}</span>
                             <a href="{{ url_for('request_details', req_id=req.id) }}" class="btn btn-sm btn-blood rounded-pill px-3">
                                 View Details & Donors <i class="bi bi-arrow-right"></i>
                             </a>

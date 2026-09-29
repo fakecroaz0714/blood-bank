@@ -7,22 +7,38 @@ function initDonorMap(elementId = 'donorMap', bloodGroup = '', city = '') {
     const mapElement = document.getElementById(elementId);
     if (!mapElement) return;
 
+    if (typeof L === 'undefined') {
+        console.warn("Leaflet library is not available.");
+        return;
+    }
+
     // Center defaults around India (or Chennai/Bangalore)
     const defaultCenter = [13.0827, 80.2707];
     const defaultZoom = 6;
 
+    if (mapElement._leaflet_id && !mapInstance) {
+        delete mapElement._leaflet_id;
+    }
+
     if (!mapInstance) {
-        mapInstance = L.map(elementId).setView(defaultCenter, defaultZoom);
+        try {
+            mapInstance = L.map(elementId).setView(defaultCenter, defaultZoom);
 
-        // OpenStreetMap Tile Layer
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-            maxZoom: 18
-        }).addTo(mapInstance);
+            // OpenStreetMap Tile Layer
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                maxZoom: 18
+            }).addTo(mapInstance);
 
-        donorMarkersLayer = L.layerGroup().addTo(mapInstance);
+            donorMarkersLayer = L.layerGroup().addTo(mapInstance);
+        } catch (e) {
+            console.error("Failed to initialize Leaflet map:", e);
+            return;
+        }
     } else {
-        donorMarkersLayer.clearLayers();
+        if (donorMarkersLayer) {
+            donorMarkersLayer.clearLayers();
+        }
     }
 
     // Fetch donor locations via API

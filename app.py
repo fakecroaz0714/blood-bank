@@ -6,11 +6,11 @@ from flask import (
     Flask, render_template, request, redirect,
     url_for, session, flash, jsonify, g
 )
-from werkzeug.security import generate_password_hash, check_password_hash
+from auth_utils import generate_password_hash, check_password_hash
 
 from database import (
     get_db, close_db, init_db, query_db,
-    execute_db, DATABASE_PATH
+    execute_db
 )
 
 app = Flask(__name__)
@@ -47,13 +47,16 @@ def inject_global_data():
     """Injects unread notification counts and user info into all Jinja templates."""
     unread_count = 0
     if session.get('user_id'):
-        row = query_db(
-            "SELECT COUNT(*) as cnt FROM notifications WHERE user_id = ? AND is_read = 0",
-            (session['user_id'],),
-            one=True
-        )
-        if row:
-            unread_count = row['cnt']
+        try:
+            row = query_db(
+                "SELECT COUNT(*) as cnt FROM notifications WHERE user_id = ? AND is_read = 0",
+                (session['user_id'],),
+                one=True
+            )
+            if row:
+                unread_count = row['cnt']
+        except Exception:
+            unread_count = 0
     return dict(unread_notif_count=unread_count)
 
 def login_required(f):
@@ -96,16 +99,16 @@ def donor_required(f):
 @app.route('/')
 def index():
     # 1. Fetch live metrics
-    total_donors = query_db("SELECT COUNT(*) as cnt FROM donors", one=True)['cnt']
-    verified_donors = query_db("SELECT COUNT(*) as cnt FROM donors WHERE is_verified = 1", one=True)['cnt']
-    available_donors = query_db("SELECT COUNT(*) as cnt FROM donors WHERE is_available = 1 AND is_verified = 1", one=True)['cnt']
-    open_requests = query_db("SELECT COUNT(*) as cnt FROM blood_requests WHERE status = 'Open'", one=True)['cnt']
+    r_total = query_db("SELECT COUNT(*) as cnt FROM donors", one=True)
+    r_verified = query_db("SELECT COUNT(*) as cnt FROM donors WHERE is_verified = 1", one=True)
+    r_available = query_db("SELECT COUNT(*) as cnt FROM donors WHERE is_available = 1 AND is_verified = 1", one=True)
+    r_open = query_db("SELECT COUNT(*) as cnt FROM blood_requests WHERE status = 'Open'", one=True)
 
     stats = {
-        'total_donors': total_donors,
-        'verified_donors': verified_donors,
-        'available_donors': available_donors,
-        'open_requests': open_requests
+        'total_donors': r_total['cnt'] if r_total else 0,
+        'verified_donors': r_verified['cnt'] if r_verified else 0,
+        'available_donors': r_available['cnt'] if r_available else 0,
+        'open_requests': r_open['cnt'] if r_open else 0
     }
 
     # 2. Fetch recent urgent requests
@@ -214,6 +217,9 @@ def register():
         if role == 'donor':
             blood_group = request.form.get('blood_group', '').strip()
             city = request.form.get('city', '').strip()
+            if not blood_group or not city:
+                flash('Blood group and city are required for donor registration.', 'danger')
+                return redirect(url_for('register'))
             address = request.form.get('address', '').strip()
             last_donation_date = request.form.get('last_donation_date', '').strip() or None
 
@@ -355,7 +361,10 @@ def donor_profile():
         city = request.form.get('city', '').strip()
         address = request.form.get('address', '').strip()
         last_donation_date = request.form.get('last_donation_date', '').strip() or None
-        total_donations = int(request.form.get('total_donations', 0))
+        try:
+            total_donations = max(0, int(request.form.get('total_donations', 0) or 0))
+        except (ValueError, TypeError):
+            total_donations = 0
 
         # Update users table
         execute_db("UPDATE users SET name = ?, phone = ? WHERE id = ?", (name, phone, user_id))
@@ -453,7 +462,10 @@ def emergency_request_new():
 
         patient_name = request.form.get('patient_name', '').strip()
         blood_group = request.form.get('blood_group', '').strip()
-        units_needed = int(request.form.get('units_needed', 1))
+        try:
+            units_needed = max(1, int(request.form.get('units_needed', 1) or 1))
+        except (ValueError, TypeError):
+            units_needed = 1
         hospital = request.form.get('hospital', '').strip()
         city = request.form.get('city', '').strip()
         contact_phone = request.form.get('contact_phone', '').strip()
@@ -537,16 +549,16 @@ def update_request_status(req_id):
 @admin_required
 def admin_dashboard():
     # 1. Stats
-    total_donors = query_db("SELECT COUNT(*) as cnt FROM donors", one=True)['cnt']
-    verified_donors = query_db("SELECT COUNT(*) as cnt FROM donors WHERE is_verified = 1", one=True)['cnt']
-    pending_donors = query_db("SELECT COUNT(*) as cnt FROM donors WHERE is_verified = 0", one=True)['cnt']
-    open_requests = query_db("SELECT COUNT(*) as cnt FROM blood_requests WHERE status = 'Open'", one=True)['cnt']
+    r_total = query_db("SELECT COUNT(*) as cnt FROM donors", one=True)
+    r_verified = query_db("SELECT COUNT(*) as cnt FROM donors WHERE is_verified = 1", one=True)
+    r_pending = query_db("SELECT COUNT(*) as cnt FROM donors WHERE is_verified = 0", one=True)
+    r_open = query_db("SELECT COUNT(*) as cnt FROM blood_requests WHERE status = 'Open'", one=True)
 
     stats = {
-        'total_donors': total_donors,
-        'verified_donors': verified_donors,
-        'pending_donors': pending_donors,
-        'open_requests': open_requests
+        'total_donors': r_total['cnt'] if r_total else 0,
+        'verified_donors': r_verified['cnt'] if r_verified else 0,
+        'pending_donors': r_pending['cnt'] if r_pending else 0,
+        'open_requests': r_open['cnt'] if r_open else 0
     }
 
     # 2. Donors Table
@@ -651,6 +663,18 @@ def notifications_mark_all_read():
     execute_db("UPDATE notifications SET is_read = 1 WHERE user_id = ?", (user_id,))
     flash('All notifications marked as read.', 'info')
     return redirect(url_for('notifications_view'))
+
+# ---------------------------------------------------------
+# Error Handlers
+# ---------------------------------------------------------
+
+@app.errorhandler(404)
+def not_found_error(error):
+    return render_template('404.html'), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    return render_template('500.html'), 500
 
 # ---------------------------------------------------------
 # Application Runner

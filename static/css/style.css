@@ -394,3 +394,26 @@ footer a {
 footer a:hover {
   color: white;
 }
+
+/* Notification Types */
+.notif-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.notif-emergency {
+  background: #fee2e2;
+}
+
+.notif-verification {
+  background: #e0f2fe;
+}
+
+.notif-info {
+  background: #f1f5f9;
+}

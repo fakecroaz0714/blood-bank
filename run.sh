@@ -10,10 +10,13 @@ echo "======================================================="
 # Navigate to project directory
 cd "$(dirname "$0")"
 
-# Activate virtualenv if present, otherwise use system python
-if [ -d "venv" ]; then
-    source venv/bin/activate
+# Ensure virtual environment exists and is activated
+if [ ! -d "venv" ]; then
+    echo "First time setup: Initializing Python virtual environment..."
+    python3 -m venv venv
+    venv/bin/pip install --quiet -r requirements.txt
 fi
+source venv/bin/activate
 
 # Ensure database is seeded if missing
 if [ ! -f "bloodconnect.db" ]; then

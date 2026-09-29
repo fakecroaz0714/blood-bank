@@ -1,5 +1,5 @@
 import sqlite3
-from werkzeug.security import generate_password_hash
+from auth_utils import generate_password_hash
 from database import init_db, execute_db, query_db, get_db
 
 def seed():

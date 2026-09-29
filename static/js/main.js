@@ -3,11 +3,19 @@
 document.addEventListener('DOMContentLoaded', function() {
     // 1. Auto-dismiss Bootstrap alerts after 5 seconds
     setTimeout(function() {
-        const alerts = document.querySelectorAll('.alert-dismissible');
-        alerts.forEach(function(alert) {
-            const bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
-            bsAlert.close();
-        });
+        if (typeof bootstrap !== 'undefined' && bootstrap.Alert) {
+            const alerts = document.querySelectorAll('.alert-dismissible');
+            alerts.forEach(function(alert) {
+                if (alert && alert.isConnected) {
+                    try {
+                        const bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
+                        if (bsAlert) bsAlert.close();
+                    } catch (e) {
+                        console.debug("Alert already dismissed:", e);
+                    }
+                }
+            });
+        }
     }, 5000);
 
     // 2. Donor Availability Toggle Handler
@@ -148,7 +156,11 @@ function showToast(title, message, variant = 'info') {
     `;
 
     toastContainer.appendChild(toastEl);
-    const bsToast = new bootstrap.Toast(toastEl, { delay: 3500 });
-    bsToast.show();
-    toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+    if (typeof bootstrap !== 'undefined' && bootstrap.Toast) {
+        const bsToast = new bootstrap.Toast(toastEl, { delay: 3500 });
+        bsToast.show();
+        toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+    } else {
+        setTimeout(() => toastEl.remove(), 3500);
+    }
 }

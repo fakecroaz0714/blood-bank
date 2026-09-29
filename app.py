@@ -14,7 +14,11 @@ from database import (
 )
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'bloodconnect_super_secret_viva_key_2026')
+secret_val = (os.environ.get('SECRET_KEY') or '').strip()
+if not secret_val:
+    secret_val = 'bloodconnect_super_secret_viva_key_2026'
+app.secret_key = secret_val
+app.config['SECRET_KEY'] = secret_val
 
 # Auto-close database connection on request teardown
 app.teardown_appcontext(close_db)
@@ -674,7 +678,11 @@ def not_found_error(error):
 
 @app.errorhandler(500)
 def internal_error(error):
-    return render_template('500.html'), 500
+    import traceback
+    error_tb = traceback.format_exc()
+    if not error_tb or 'NoneType' in error_tb:
+        error_tb = str(error)
+    return render_template('500.html', error_details=error_tb), 500
 
 # ---------------------------------------------------------
 # Application Runner

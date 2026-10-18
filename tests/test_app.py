@@ -243,5 +243,112 @@ class BloodConnectTestCase(unittest.TestCase):
             req = database.query_db("SELECT status FROM blood_requests WHERE id = 1", one=True)
             self.assertEqual(req['status'], 'Fulfilled')
 
+    def test_registration_privilege_escalation_prevented(self):
+        """Public registration cannot escalate role to admin."""
+        res = self.client.post('/register', data={
+            'name': 'Hacker Wannabe',
+            'email': 'hacker@example.com',
+            'phone': '+91 99999 11111',
+            'password': 'password123',
+            'role': 'admin',
+            'blood_group': 'O+',
+            'city': 'Chennai'
+        }, follow_redirects=True)
+        self.assertEqual(res.status_code, 200)
+        with app.app_context():
+            u = database.query_db("SELECT role FROM users WHERE email = 'hacker@example.com'", one=True)
+            self.assertIsNotNone(u)
+            self.assertNotEqual(u['role'], 'admin')
+            self.assertEqual(u['role'], 'donor')
+
+    def test_registration_missing_donor_fields_no_orphaned_user(self):
+        """Donor registration without blood group or city must not leave orphaned user rows."""
+        res = self.client.post('/register', data={
+            'name': 'Incomplete Donor',
+            'email': 'incomplete@example.com',
+            'phone': '+91 99999 22222',
+            'password': 'password123',
+            'role': 'donor',
+            'blood_group': '',  # missing
+            'city': ''          # missing
+        }, follow_redirects=True)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(b'Blood group and city are required', res.data)
+        with app.app_context():
+            u = database.query_db("SELECT id FROM users WHERE email = 'incomplete@example.com'", one=True)
+            self.assertIsNone(u)  # No orphaned user row
+
+    def test_api_whatsapp_endpoints(self):
+        """WhatsApp status, matching donors, and broadcast API endpoints."""
+        # Status API
+        res_status = self.client.get('/api/whatsapp/status')
+        self.assertEqual(res_status.status_code, 200)
+        status_data = res_status.get_json()
+        self.assertIn('is_configured', status_data)
+        self.assertIn('total_donors', status_data)
+
+        # Matching Donors API
+        res_matching = self.client.get('/api/whatsapp/matching-donors?blood_group=O%2B&city=Chennai')
+        self.assertEqual(res_matching.status_code, 200)
+        matching_data = res_matching.get_json()
+        self.assertIn('count', matching_data)
+        self.assertIn('donors', matching_data)
+        self.assertGreater(matching_data['count'], 0)
+
+        # Broadcast API validation failure
+        res_fail = self.client.post('/api/whatsapp/broadcast', json={})
+        self.assertEqual(res_fail.status_code, 400)
+        self.assertFalse(res_fail.get_json()['success'])
+
+        # Broadcast API success (simulation mode)
+        res_broadcast = self.client.post('/api/whatsapp/broadcast', json={
+            'patient_name': 'Test Emergency Case',
+            'hospital': 'City Hospital',
+            'contact_phone': '+91 98401 23456',
+            'blood_group': 'O+',
+            'city': 'Chennai',
+            'urgency': 'Critical',
+            'units_needed': '2'
+        })
+        self.assertEqual(res_broadcast.status_code, 200)
+        broadcast_data = res_broadcast.get_json()
+        self.assertTrue(broadcast_data['success'])
+        self.assertGreater(broadcast_data['total_targeted'], 0)
+
+    def test_toggle_availability_malformed_input(self):
+        """Toggle availability should gracefully handle malformed or non-JSON payloads."""
+        self.client.get('/quick-login/donor')
+        # Empty payload
+        res = self.client.post('/api/donor/toggle-availability', data='')
+        self.assertEqual(res.status_code, 200)
+        # Form payload instead of JSON
+        res2 = self.client.post('/api/donor/toggle-availability', data={'is_available': '1'})
+        self.assertEqual(res2.status_code, 200)
+
+    def test_admin_delete_donor(self):
+        """Admin can delete a donor and all associated user rows are cleanly removed."""
+        self.client.get('/quick-login/admin')
+        # Donor id 1 is Rahul Sharma (user_id 3)
+        res = self.client.post('/admin/donor/1/delete', follow_redirects=True)
+        self.assertEqual(res.status_code, 200)
+        with app.app_context():
+            d = database.query_db("SELECT id FROM donors WHERE id = 1", one=True)
+            self.assertIsNone(d)
+            u = database.query_db("SELECT id FROM users WHERE id = 3", one=True)
+            self.assertIsNone(u)
+
+    def test_database_rollback_on_error(self):
+        """Database rollback is cleanly triggered on SQL constraint or execution error."""
+        with app.app_context():
+            # Attempt an invalid INSERT violating UNIQUE email constraint
+            with self.assertRaises(Exception):
+                database.execute_db(
+                    "INSERT INTO users (name, email, password_hash, phone, role) VALUES (?, ?, ?, ?, ?)",
+                    ('Duplicate Admin', 'admin@bloodconnect.org', 'dummy', '000', 'admin')
+                )
+            # Subsequent query works fine (connection not left in broken transaction)
+            count = database.query_db("SELECT COUNT(*) as cnt FROM users", one=True)
+            self.assertGreater(count['cnt'], 0)
+
 if __name__ == '__main__':
     unittest.main()

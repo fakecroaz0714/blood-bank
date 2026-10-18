@@ -1,4 +1,5 @@
 import os
+import re
 import sqlite3
 from flask import g, has_app_context
 
@@ -10,15 +11,19 @@ if os.path.exists(ENV_PATH):
             line = line.strip()
             if line and not line.startswith('#') and '=' in line:
                 k, v = line.split('=', 1)
-                os.environ.setdefault(k.strip(), v.strip())
+                os.environ[k.strip()] = v.strip()
 
-DATABASE_URL = os.environ.get('DATABASE_URL')
 DATABASE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bloodconnect.db')
 SCHEMA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'schema.sql')
 SCHEMA_PG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'schema_supabase.sql')
 
+def get_database_url():
+    """Dynamically get the current DATABASE_URL from environment."""
+    return (os.environ.get('DATABASE_URL') or '').strip()
+
 def is_using_postgres():
-    return bool(DATABASE_URL and DATABASE_URL.startswith(('postgresql://', 'postgres://')))
+    db_url = get_database_url()
+    return bool(db_url and db_url.startswith(('postgresql://', 'postgres://')))
 
 def get_db(db_path=None):
     """Get database connection for current context (Postgres or SQLite)."""
@@ -28,7 +33,8 @@ def get_db(db_path=None):
     if is_using_postgres():
         import psycopg2
         import psycopg2.extras
-        conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
+        db_url = get_database_url()
+        conn = psycopg2.connect(db_url, cursor_factory=psycopg2.extras.RealDictCursor)
     else:
         target_path = db_path or DATABASE_PATH
         conn = sqlite3.connect(target_path)
@@ -46,29 +52,34 @@ def close_db(e=None):
         if db is not None:
             db.close()
 
+def _normalize_pg_query(query):
+    """Translates SQLite-style queries to Postgres syntax and handles boolean column checks."""
+    pg_query = query.replace('?', '%s')
+    pg_query = re.sub(r'\b(is_verified|is_available|is_read)\s*=\s*1\b', r'\1 = TRUE', pg_query, flags=re.IGNORECASE)
+    pg_query = re.sub(r'\b(is_verified|is_available|is_read)\s*=\s*0\b', r'\1 = FALSE', pg_query, flags=re.IGNORECASE)
+    return pg_query
+
 def init_db(db_path=None):
     """Initialize database tables."""
-    if is_using_postgres():
-        in_ctx = has_app_context()
-        conn = get_db()
-        cur = conn.cursor()
-        try:
+    in_ctx = has_app_context()
+    conn = get_db(db_path)
+    cur = conn.cursor()
+    try:
+        if is_using_postgres():
             with open(SCHEMA_PG_PATH, 'r', encoding='utf-8') as f:
                 cur.execute(f.read())
             conn.commit()
-        finally:
-            cur.close()
-            if not in_ctx:
-                conn.close()
-    else:
-        target_path = db_path or DATABASE_PATH
-        conn = sqlite3.connect(target_path)
-        conn.execute("PRAGMA foreign_keys = ON")
-        try:
+        else:
             with open(SCHEMA_PATH, 'r', encoding='utf-8') as f:
                 conn.executescript(f.read())
             conn.commit()
-        finally:
+    except Exception:
+        if conn:
+            conn.rollback()
+        raise
+    finally:
+        cur.close()
+        if not in_ctx and conn:
             conn.close()
 
 def query_db(query, args=(), one=False, db_path=None):
@@ -78,7 +89,7 @@ def query_db(query, args=(), one=False, db_path=None):
     cur = conn.cursor()
     try:
         if is_using_postgres():
-            pg_query = query.replace('?', '%s')
+            pg_query = _normalize_pg_query(query)
             cur.execute(pg_query, args)
             rows = cur.fetchall()
             return (rows[0] if rows else None) if one else rows
@@ -86,26 +97,38 @@ def query_db(query, args=(), one=False, db_path=None):
             cur.execute(query, args)
             rows = cur.fetchall()
             return (rows[0] if rows else None) if one else rows
+    except Exception:
+        if conn:
+            conn.rollback()
+        raise
     finally:
         cur.close()
-        if not in_ctx:
+        if not in_ctx and conn:
             conn.close()
 
 def execute_db(query, args=(), db_path=None):
-    """Execute an INSERT/UPDATE/DELETE query and commit. Returns lastrowid if applicable."""
+    """Execute an INSERT/UPDATE/DELETE query and commit. Returns lastrowid/id if applicable."""
     in_ctx = has_app_context()
     conn = get_db(db_path)
     cur = conn.cursor()
     try:
         if is_using_postgres():
-            pg_query = query.replace('?', '%s')
-            trimmed = pg_query.strip()
+            pg_query = _normalize_pg_query(query)
+            trimmed = pg_query.strip().rstrip(';').strip()
             has_returning = 'RETURNING' in trimmed.upper()
             if trimmed.upper().startswith('INSERT') and not has_returning:
                 pg_query = f"{trimmed} RETURNING id"
                 cur.execute(pg_query, args)
                 last_id_row = cur.fetchone()
-                last_id = last_id_row['id'] if last_id_row else None
+                if last_id_row:
+                    if isinstance(last_id_row, dict):
+                        last_id = last_id_row.get('id')
+                    elif isinstance(last_id_row, (list, tuple)):
+                        last_id = last_id_row[0]
+                    else:
+                        last_id = getattr(last_id_row, 'id', None)
+                else:
+                    last_id = None
             else:
                 cur.execute(pg_query, args)
                 last_id = None
@@ -115,7 +138,11 @@ def execute_db(query, args=(), db_path=None):
             cur.execute(query, args)
             conn.commit()
             return cur.lastrowid
+    except Exception:
+        if conn:
+            conn.rollback()
+        raise
     finally:
         cur.close()
-        if not in_ctx:
+        if not in_ctx and conn:
             conn.close()

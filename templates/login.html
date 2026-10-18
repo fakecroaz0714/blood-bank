@@ -7,26 +7,21 @@
     <div class="row justify-content-center">
         <div class="col-md-6 col-lg-5">
 
-            <!-- Viva Quick-Demo Card -->
+            <!-- Administrator Quick Access -->
             <div class="viva-box shadow-sm mb-4">
                 <div class="viva-title d-flex align-items-center justify-content-between">
-                    <span><i class="bi bi-mortarboard-fill text-danger me-1"></i> Viva & Demo Quick Login</span>
-                    <span class="badge bg-secondary">1-Click</span>
+                    <span><i class="bi bi-shield-lock-fill text-primary me-1"></i> Administrator Quick Access</span>
+                    <span class="badge bg-primary">1-Click</span>
                 </div>
-                <p class="small text-muted mb-2">Test role-specific workflows without typing:</p>
-                <div class="d-grid gap-2">
+                <p class="small text-muted mb-2">Sign in as system admin to review & verify real-time donors:</p>
+                <div class="d-grid gap-2 mb-3">
                     <a href="{{ url_for('quick_login', role='admin') }}" class="btn btn-sm btn-outline-dark text-start d-flex justify-content-between align-items-center">
-                        <span><i class="bi bi-shield-lock-fill text-primary me-2"></i><strong>Admin Account</strong> (admin@bloodconnect.org)</span>
+                        <span><i class="bi bi-shield-check text-primary me-2"></i><strong>Admin Account</strong> (admin@bloodconnect.org)</span>
                         <i class="bi bi-arrow-right-short"></i>
                     </a>
-                    <a href="{{ url_for('quick_login', role='donor') }}" class="btn btn-sm btn-outline-dark text-start d-flex justify-content-between align-items-center">
-                        <span><i class="bi bi-person-badge-fill text-danger me-2"></i><strong>Donor Account</strong> (donor@bloodconnect.org - O+)</span>
-                        <i class="bi bi-arrow-right-short"></i>
-                    </a>
-                    <a href="{{ url_for('quick_login', role='requester') }}" class="btn btn-sm btn-outline-dark text-start d-flex justify-content-between align-items-center">
-                        <span><i class="bi bi-person-fill text-success me-2"></i><strong>Requester Account</strong> (requester@bloodconnect.org)</span>
-                        <i class="bi bi-arrow-right-short"></i>
-                    </a>
+                </div>
+                <div class="p-2 rounded bg-light border text-muted small">
+                    <i class="bi bi-info-circle text-primary me-1"></i> <strong>Real-time Database:</strong> All donors and requesters are registered live. Use the <a href="{{ url_for('register') }}" class="text-danger fw-bold text-decoration-none">Register Page</a> to create a new profile.
                 </div>
             </div>
 

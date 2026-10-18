@@ -163,11 +163,11 @@
                     </ul>
                 </div>
                 <div class="col-lg-2 col-6">
-                    <h6 class="text-white fw-bold mb-3">Viva Demo</h6>
+                    <h6 class="text-white fw-bold mb-3">System Access</h6>
                     <ul class="list-unstyled small">
-                        <li class="mb-2"><a href="{{ url_for('quick_login', role='admin') }}">Admin Demo Access</a></li>
-                        <li class="mb-2"><a href="{{ url_for('quick_login', role='donor') }}">Donor Demo Access</a></li>
-                        <li class="mb-2"><a href="{{ url_for('quick_login', role='requester') }}">Requester Demo</a></li>
+                        <li class="mb-2"><a href="{{ url_for('quick_login', role='admin') }}">Admin Portal</a></li>
+                        <li class="mb-2"><a href="{{ url_for('register') }}">Register Live Donor</a></li>
+                        <li class="mb-2"><a href="{{ url_for('login') }}">Sign In</a></li>
                         <li class="mb-2"><a href="{{ url_for('requests_list') }}">Live Blood Feed</a></li>
                     </ul>
                 </div>
@@ -189,6 +189,17 @@
             </div>
         </div>
     </footer>
+
+    <!-- WhatsApp Floating Action Widget -->
+    <div class="whatsapp-floating-widget" title="Broadcast WhatsApp Emergency Alert">
+        <button type="button" class="btn-whatsapp-float shadow-lg" data-bs-toggle="modal" data-bs-target="#whatsappBroadcastModal" aria-label="Send WhatsApp Emergency Alert">
+            <i class="bi bi-whatsapp"></i>
+            <span class="whatsapp-pulse"></span>
+        </button>
+    </div>
+
+    <!-- WhatsApp Emergency Broadcast Modal -->
+    {% include 'whatsapp_modal.html' %}
 
     <!-- Bootstrap 5 JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

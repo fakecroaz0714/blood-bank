@@ -6,3 +6,6 @@ __pycache__/
 .env
 .claude/
 agent/
+*cookies.txt
+eneiya project/
+genzcoderz OTA/

@@ -12,18 +12,17 @@ def seed():
 
     # 1. Admin Account
     admin_pw = generate_password_hash('admin123')
-    cur.execute("""
+    execute_db("""
         INSERT INTO users (name, email, password_hash, phone, role)
         VALUES (?, ?, ?, ?, ?)
     """, ('Admin Officer', 'admin@bloodconnect.org', admin_pw, '+91 98765 43210', 'admin'))
 
     # 2. Requester Account
     req_pw = generate_password_hash('password123')
-    cur.execute("""
+    requester_user_id = execute_db("""
         INSERT INTO users (name, email, password_hash, phone, role)
         VALUES (?, ?, ?, ?, ?)
     """, ('Sarah Jenkins', 'requester@bloodconnect.org', req_pw, '+91 98401 23456', 'requester'))
-    requester_user_id = cur.lastrowid
 
     # 3. Donors Data
     donors_data = [
@@ -151,18 +150,17 @@ def seed():
 
     first_donor_user_id = None
     for d in donors_data:
-        cur.execute("""
+        uid = execute_db("""
             INSERT INTO users (name, email, password_hash, phone, role)
             VALUES (?, ?, ?, ?, ?)
         """, (d['name'], d['email'], generate_password_hash(d['pw']), d['phone'], 'donor'))
-        uid = cur.lastrowid
         if first_donor_user_id is None:
             first_donor_user_id = uid
 
-        cur.execute("""
+        execute_db("""
             INSERT INTO donors (user_id, blood_group, city, address, latitude, longitude, is_available, is_verified, last_donation_date, total_donations)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (uid, d['blood_group'], d['city'], d['address'], d['lat'], d['lng'], d['available'], d['verified'], d['last_donation'], d['total_donations']))
+        """, (uid, d['blood_group'], d['city'], d['address'], d['lat'], d['lng'], bool(d['available']), bool(d['verified']), d['last_donation'], d['total_donations']))
 
     # 4. Blood Requests
     requests_data = [
@@ -172,37 +170,50 @@ def seed():
     ]
 
     for req in requests_data:
-        cur.execute("""
+        execute_db("""
             INSERT INTO blood_requests (requester_id, patient_name, blood_group, units_needed, hospital, city, contact_phone, urgency, status, notes)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, req)
 
     # 5. In-App Notifications
     if first_donor_user_id:
-        cur.execute("""
+        execute_db("""
             INSERT INTO notifications (user_id, title, message, type, is_read)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, FALSE)
         """, (
             first_donor_user_id,
             '🚨 CRITICAL REQUEST: O+ Blood Needed in Chennai',
             'Patient Ramesh Kumar needs 2 units of O+ blood at Apollo Hospital, Greams Road, Chennai. If eligible, please contact +91 98401 23456.',
-            'emergency',
-            0
+            'emergency'
         ))
-        cur.execute("""
+        execute_db("""
             INSERT INTO notifications (user_id, title, message, type, is_read)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, TRUE)
         """, (
             first_donor_user_id,
             '✅ Account Verified',
             'Your donor profile has been verified by the BloodConnect Medical Admin. You are now visible to search queries.',
-            'verification',
-            1
+            'verification'
         ))
 
-    conn.commit()
-    conn.close()
     print("Database seeded successfully with sample donors, requesters, admin, and blood requests!")
 
+def init_clean():
+    """Initializes a clean database with only the Administrator account (no dummy donors or requesters)."""
+    print("Initializing clean database for real-time registrations...")
+    init_db()
+
+    admin_pw = generate_password_hash('admin123')
+    execute_db("""
+        INSERT INTO users (name, email, password_hash, phone, role)
+        VALUES (?, ?, ?, ?, ?)
+    """, ('Admin Officer', 'admin@bloodconnect.org', admin_pw, '+91 98765 43210', 'admin'))
+
+    print("Clean database ready! Only Admin account created. All donors and requesters will be real-time registrations.")
+
 if __name__ == '__main__':
-    seed()
+    import sys
+    if '--demo' in sys.argv:
+        seed()
+    else:
+        init_clean()

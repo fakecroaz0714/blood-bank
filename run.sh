@@ -18,9 +18,9 @@ if [ ! -d "venv" ]; then
 fi
 source venv/bin/activate
 
-# Ensure database is seeded if missing
+# Ensure database is initialized if missing
 if [ ! -f "bloodconnect.db" ]; then
-    echo "First time setup: Seeding database with realistic demo data..."
+    echo "First time setup: Initializing clean database for real-time registrations..."
     python seed_data.py
 fi
 
@@ -28,15 +28,16 @@ echo ""
 echo "🚀 Starting BloodConnect web server on http://127.0.0.1:5050 ..."
 echo "👉 Open http://127.0.0.1:5050 in your browser to view the app."
 echo ""
-echo "Demo Login Credentials:"
+echo "Default Administrator Credentials:"
 echo "-------------------------------------------------------"
 echo "Role        | Email                      | Password    "
 echo "-------------------------------------------------------"
 echo "Admin       | admin@bloodconnect.org     | admin123    "
-echo "Donor (O+)  | donor@bloodconnect.org     | password123 "
-echo "Requester   | requester@bloodconnect.org | password123 "
 echo "-------------------------------------------------------"
-echo "Tip: You can also use the 1-click 'Viva Demo' buttons on the login page!"
+echo "Live Registered Data:"
+echo "• Donors and Requesters register live in real-time."
+echo "• Use the 'Register' page to create new accounts."
+echo "• Admin dashboard allows verifying newly registered donors."
 echo ""
 
 python app.py

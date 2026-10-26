@@ -66,3 +66,30 @@ CREATE TABLE notifications (
 -- Indices for rapid search on blood group and city
 CREATE INDEX idx_donors_search ON donors(blood_group, city, is_available, is_verified);
 CREATE INDEX idx_requests_status ON blood_requests(status, urgency, blood_group);
+
+-- Blood-bank inventory is separate from volunteer donor profiles.
+CREATE TABLE IF NOT EXISTS blood_banks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(160) NOT NULL,
+    email VARCHAR(160) NOT NULL UNIQUE,
+    phone VARCHAR(40) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    license_number VARCHAR(100) NOT NULL,
+    city VARCHAR(100) NOT NULL,
+    address TEXT NOT NULL,
+    latitude REAL DEFAULT 13.0827,
+    longitude REAL DEFAULT 80.2707,
+    is_verified INTEGER NOT NULL DEFAULT 0 CHECK (is_verified IN (0, 1)),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS blood_bank_stock (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    blood_bank_id INTEGER NOT NULL,
+    blood_group VARCHAR(5) NOT NULL CHECK (blood_group IN ('A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-')),
+    component VARCHAR(40) NOT NULL CHECK (component IN ('Whole Blood', 'Red Cells', 'Platelets', 'Plasma')),
+    units_available INTEGER NOT NULL DEFAULT 0 CHECK (units_available >= 0),
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (blood_bank_id, blood_group, component),
+    FOREIGN KEY (blood_bank_id) REFERENCES blood_banks(id) ON DELETE CASCADE
+);

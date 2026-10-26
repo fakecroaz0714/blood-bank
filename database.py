@@ -68,10 +68,12 @@ def init_db(db_path=None):
         if is_using_postgres():
             with open(SCHEMA_PG_PATH, 'r', encoding='utf-8') as f:
                 cur.execute(f.read())
+            ensure_blood_bank_tables(conn, cur, postgres=True)
             conn.commit()
         else:
             with open(SCHEMA_PATH, 'r', encoding='utf-8') as f:
                 conn.executescript(f.read())
+            ensure_blood_bank_tables(conn, conn.cursor(), postgres=False)
             conn.commit()
     except Exception:
         if conn:
@@ -80,6 +82,58 @@ def init_db(db_path=None):
     finally:
         cur.close()
         if not in_ctx and conn:
+            conn.close()
+
+def ensure_blood_bank_tables(conn=None, cur=None, postgres=None):
+    """Create the additive blood-bank inventory tables without touching existing data."""
+    own_connection = conn is None
+    if own_connection:
+        conn = get_db()
+    if cur is None:
+        cur = conn.cursor()
+    if postgres is None:
+        postgres = is_using_postgres()
+
+    id_type = 'SERIAL PRIMARY KEY' if postgres else 'INTEGER PRIMARY KEY AUTOINCREMENT'
+    bool_type = 'BOOLEAN NOT NULL DEFAULT FALSE' if postgres else 'INTEGER NOT NULL DEFAULT 0 CHECK (is_verified IN (0, 1))'
+    stock_id_type = 'SERIAL PRIMARY KEY' if postgres else 'INTEGER PRIMARY KEY AUTOINCREMENT'
+    statements = [
+        f'''CREATE TABLE IF NOT EXISTS blood_banks (
+            id {id_type},
+            name VARCHAR(160) NOT NULL,
+            email VARCHAR(160) NOT NULL UNIQUE,
+            phone VARCHAR(40) NOT NULL,
+            password_hash VARCHAR(255) NOT NULL,
+            license_number VARCHAR(100) NOT NULL,
+            city VARCHAR(100) NOT NULL,
+            address TEXT NOT NULL,
+            latitude DOUBLE PRECISION DEFAULT 13.0827,
+            longitude DOUBLE PRECISION DEFAULT 80.2707,
+            is_verified {bool_type},
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )''',
+        f'''CREATE TABLE IF NOT EXISTS blood_bank_stock (
+            id {stock_id_type},
+            blood_bank_id INTEGER NOT NULL REFERENCES blood_banks(id) ON DELETE CASCADE,
+            blood_group VARCHAR(5) NOT NULL CHECK (blood_group IN ('A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-')),
+            component VARCHAR(40) NOT NULL CHECK (component IN ('Whole Blood', 'Red Cells', 'Platelets', 'Plasma')),
+            units_available INTEGER NOT NULL DEFAULT 0 CHECK (units_available >= 0),
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (blood_bank_id, blood_group, component)
+        )''',
+    ]
+    if postgres:
+        statements.extend([
+            'ALTER TABLE blood_banks ENABLE ROW LEVEL SECURITY',
+            'ALTER TABLE blood_bank_stock ENABLE ROW LEVEL SECURITY',
+        ])
+    try:
+        for statement in statements:
+            cur.execute(statement)
+        conn.commit()
+    finally:
+        cur.close()
+        if own_connection and not has_app_context():
             conn.close()
 
 def query_db(query, args=(), one=False, db_path=None):

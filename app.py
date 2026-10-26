@@ -10,7 +10,7 @@ from auth_utils import generate_password_hash, check_password_hash
 
 from database import (
     get_db, close_db, init_db, query_db,
-    execute_db
+    execute_db, ensure_blood_bank_tables
 )
 import whatsapp_service
 
@@ -20,6 +20,16 @@ if not secret_val:
     secret_val = 'bloodconnect_super_secret_viva_key_2026'
 app.secret_key = secret_val
 app.config['SECRET_KEY'] = secret_val
+
+_blood_bank_schema_ready = False
+
+@app.before_request
+def ensure_live_inventory_schema():
+    """Apply the additive inventory schema once per app instance, including on Vercel."""
+    global _blood_bank_schema_ready
+    if not _blood_bank_schema_ready:
+        ensure_blood_bank_tables()
+        _blood_bank_schema_ready = True
 
 # Auto-close database connection on request teardown
 app.teardown_appcontext(close_db)
@@ -94,6 +104,15 @@ def donor_required(f):
         if session.get('user_role') != 'donor':
             flash('This section is dedicated to registered blood donors.', 'info')
             return redirect(url_for('index'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def blood_bank_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if session.get('user_role') != 'blood_bank' or not session.get('blood_bank_id'):
+            flash('Please sign in with your blood bank account.', 'warning')
+            return redirect(url_for('blood_bank_login'))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -334,6 +353,150 @@ def search_donors():
         available_only=available_only,
         verified_only=verified_only
     )
+
+# ---------------------------------------------------------
+# Blood Bank Inventory (separate from volunteer donors)
+# ---------------------------------------------------------
+
+BLOOD_GROUPS = ('O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-')
+BLOOD_COMPONENTS = ('Whole Blood', 'Red Cells', 'Platelets', 'Plasma')
+
+def _inventory_rows(blood_group='', city='', component=''):
+    sql = '''
+        SELECT s.id, s.blood_group, s.component, s.units_available, s.updated_at,
+               b.id AS blood_bank_id, b.name AS bank_name, b.phone, b.city,
+               b.address, b.latitude, b.longitude
+        FROM blood_bank_stock s
+        JOIN blood_banks b ON b.id = s.blood_bank_id
+        WHERE b.is_verified = TRUE AND s.units_available > 0
+    '''
+    params = []
+    if blood_group in BLOOD_GROUPS:
+        sql += ' AND s.blood_group = ?'
+        params.append(blood_group)
+    if component in BLOOD_COMPONENTS:
+        sql += ' AND s.component = ?'
+        params.append(component)
+    if city:
+        sql += ' AND LOWER(TRIM(b.city)) LIKE ?'
+        params.append(f'%{city.lower()}%')
+    sql += ' ORDER BY s.updated_at DESC, b.name ASC'
+    rows = query_db(sql, tuple(params)) or []
+    now = datetime.utcnow()
+    result = []
+    for row in rows:
+        item = dict(row)
+        raw_updated = item.get('updated_at')
+        try:
+            updated = raw_updated if isinstance(raw_updated, datetime) else datetime.fromisoformat(str(raw_updated).replace('Z', '+00:00'))
+            if updated.tzinfo:
+                from datetime import timezone
+                updated = updated.astimezone(timezone.utc).replace(tzinfo=None)
+            item['is_stale'] = (now - updated).total_seconds() > 24 * 60 * 60
+            item['updated_at'] = updated.isoformat(timespec='minutes') + 'Z'
+        except (TypeError, ValueError):
+            item['is_stale'] = True
+            item['updated_at'] = str(raw_updated or '')
+        result.append(item)
+    return result
+
+@app.route('/blood-banks')
+def blood_banks():
+    blood_group = request.args.get('blood_group', '').strip()
+    city = request.args.get('city', '').strip()
+    component = request.args.get('component', '').strip()
+    inventory = _inventory_rows(blood_group, city, component)
+    return render_template(
+        'blood_banks.html', inventory=inventory,
+        selected_blood_group=blood_group, selected_city=city,
+        selected_component=component,
+        blood_groups=BLOOD_GROUPS, components=BLOOD_COMPONENTS
+    )
+
+@app.route('/api/blood-banks/inventory')
+def api_blood_bank_inventory():
+    inventory = _inventory_rows(
+        request.args.get('blood_group', '').strip(),
+        request.args.get('city', '').strip(),
+        request.args.get('component', '').strip()
+    )
+    response = jsonify({'inventory': inventory, 'updated_at': datetime.utcnow().isoformat(timespec='seconds') + 'Z'})
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    return response
+
+@app.route('/blood-banks/register', methods=['GET', 'POST'])
+def blood_bank_register():
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip().lower()
+        phone = request.form.get('phone', '').strip()
+        password = request.form.get('password', '')
+        license_number = request.form.get('license_number', '').strip()
+        city = request.form.get('city', '').strip()
+        address = request.form.get('address', '').strip()
+        if not all((name, email, phone, password, license_number, city, address)):
+            flash('Complete all fields to register your blood bank.', 'danger')
+            return render_template('blood_bank_register.html')
+        if len(password) < 10:
+            flash('Use a password with at least 10 characters.', 'warning')
+            return render_template('blood_bank_register.html')
+        if query_db('SELECT id FROM blood_banks WHERE LOWER(email) = LOWER(?)', (email,), one=True):
+            flash('An account already exists for this email address.', 'warning')
+            return render_template('blood_bank_register.html')
+        execute_db('''
+            INSERT INTO blood_banks (name, email, phone, password_hash, license_number, city, address)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (name, email, phone, generate_password_hash(password), license_number, city, address))
+        flash('Registration submitted. An administrator must verify your blood bank before its stock appears publicly.', 'success')
+        return redirect(url_for('blood_bank_login'))
+    return render_template('blood_bank_register.html')
+
+@app.route('/blood-banks/login', methods=['GET', 'POST'])
+def blood_bank_login():
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '')
+        bank = query_db('SELECT * FROM blood_banks WHERE LOWER(email) = LOWER(?)', (email,), one=True)
+        if bank and check_password_hash(bank['password_hash'], password):
+            session.clear()
+            session['user_role'] = 'blood_bank'
+            session['user_name'] = bank['name']
+            session['user_email'] = bank['email']
+            session['blood_bank_id'] = bank['id']
+            if not bank['is_verified']:
+                flash('Your account is pending administrator verification. You can prepare stock updates, but they will not appear publicly until approval.', 'info')
+            return redirect(url_for('blood_bank_dashboard'))
+        flash('Invalid blood bank email or password.', 'danger')
+    return render_template('blood_bank_login.html')
+
+@app.route('/blood-banks/dashboard', methods=['GET', 'POST'])
+@blood_bank_required
+def blood_bank_dashboard():
+    bank_id = session['blood_bank_id']
+    bank = query_db('SELECT * FROM blood_banks WHERE id = ?', (bank_id,), one=True)
+    if not bank:
+        session.clear()
+        return redirect(url_for('blood_bank_login'))
+    if request.method == 'POST':
+        blood_group = request.form.get('blood_group', '').strip()
+        component = request.form.get('component', '').strip()
+        try:
+            units = int(request.form.get('units_available', ''))
+        except (TypeError, ValueError):
+            units = -1
+        if blood_group not in BLOOD_GROUPS or component not in BLOOD_COMPONENTS or units < 0 or units > 100000:
+            flash('Enter a valid blood group, component, and non-negative unit count.', 'danger')
+        else:
+            execute_db('''
+                INSERT INTO blood_bank_stock (blood_bank_id, blood_group, component, units_available, updated_at)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT (blood_bank_id, blood_group, component)
+                DO UPDATE SET units_available = EXCLUDED.units_available, updated_at = CURRENT_TIMESTAMP
+            ''', (bank_id, blood_group, component, units))
+            flash(f'{blood_group} {component} stock updated to {units} unit(s).', 'success')
+            return redirect(url_for('blood_bank_dashboard'))
+    stock = query_db('SELECT * FROM blood_bank_stock WHERE blood_bank_id = ? ORDER BY blood_group, component', (bank_id,)) or []
+    return render_template('blood_bank_dashboard.html', bank=bank, stock=stock, blood_groups=BLOOD_GROUPS, components=BLOOD_COMPONENTS)
 
 @app.route('/api/donors/locations')
 def api_donor_locations():
@@ -773,6 +936,9 @@ def admin_dashboard():
     # 3. Requests Table
     requests = query_db("SELECT * FROM blood_requests ORDER BY created_at DESC") or []
 
+    # Blood centres publish inventory only after administrator verification.
+    blood_banks = query_db("SELECT * FROM blood_banks ORDER BY is_verified ASC, created_at DESC") or []
+
     # 4. Users Table
     users = query_db("SELECT id, name, email, phone, role, created_at FROM users ORDER BY created_at DESC") or []
 
@@ -780,9 +946,22 @@ def admin_dashboard():
         'admin_dashboard.html',
         stats=stats,
         donors=donors,
+        blood_banks=blood_banks,
         requests=requests,
         users=users
     )
+
+@app.route('/admin/blood-bank/<int:bank_id>/verify', methods=['POST'])
+@admin_required
+def admin_verify_blood_bank(bank_id):
+    bank = query_db('SELECT * FROM blood_banks WHERE id = ?', (bank_id,), one=True)
+    if not bank:
+        flash('Blood bank record not found.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+    new_status = not bool(bank['is_verified'])
+    execute_db('UPDATE blood_banks SET is_verified = ? WHERE id = ?', (new_status, bank_id))
+    flash(f'{bank["name"]} verification ' + ('approved.' if new_status else 'revoked.'), 'success' if new_status else 'info')
+    return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/donor/<int:donor_id>/verify', methods=['POST'])
 @admin_required

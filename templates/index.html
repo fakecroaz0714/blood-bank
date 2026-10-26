@@ -129,6 +129,14 @@
     </div>
 </section>
 
+<!-- Live Blood Bank Stock -->
+<section class="py-4 bg-light border-bottom">
+    <div class="container d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+        <div><span class="badge bg-danger-subtle text-danger mb-1">BLOOD BANK INVENTORY</span><h2 class="h4 fw-bold mb-1">Need stored blood or a component?</h2><p class="text-muted mb-0">Search stock reported by verified blood banks, with update times and direct phone contacts.</p></div>
+        <div class="d-flex gap-2"><a class="btn btn-blood fw-bold" href="{{ url_for('blood_banks') }}"><i class="bi bi-hospital me-1"></i> Find Blood Bank Stock</a><a class="btn btn-outline-secondary" href="{{ url_for('blood_bank_register') }}">Register a centre</a></div>
+    </div>
+</section>
+
 <!-- Urgent Requests Ticker Section -->
 <section class="py-5">
     <div class="container">

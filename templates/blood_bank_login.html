@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block title %}Blood Bank Sign In - BloodConnect{% endblock %}
+{% block content %}
+<div class="container py-5" style="max-width: 520px"><div class="card border-0 shadow-sm rounded-4"><div class="card-body p-4 p-md-5">
+    <span class="badge bg-danger-subtle text-danger mb-2">PARTNER PORTAL</span><h1 class="h3 fw-bold">Blood bank sign in</h1><p class="text-muted">Update your reported inventory. Approved updates appear in the public live stock search.</p>
+    <form method="POST"><div class="mb-3"><label class="form-label fw-semibold">Official email</label><input class="form-control" type="email" name="email" required autocomplete="username"></div><div class="mb-3"><label class="form-label fw-semibold">Password</label><input class="form-control" type="password" name="password" required autocomplete="current-password"></div><button class="btn btn-blood fw-bold w-100" type="submit">Sign in</button></form>
+    <p class="small text-muted mt-3 mb-0">Need an account? <a href="{{ url_for('blood_bank_register') }}">Register your blood bank</a></p>
+</div></div></div>
+{% endblock %}

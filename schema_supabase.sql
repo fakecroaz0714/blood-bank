@@ -67,6 +67,37 @@ CREATE TABLE notifications (
 CREATE INDEX idx_donors_search ON donors(blood_group, city, is_available, is_verified);
 CREATE INDEX idx_requests_status ON blood_requests(status, urgency, blood_group);
 
+-- Blood-bank inventory, separate from volunteer donors.
+CREATE TABLE IF NOT EXISTS blood_banks (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(160) NOT NULL,
+    email VARCHAR(160) NOT NULL UNIQUE,
+    phone VARCHAR(40) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    license_number VARCHAR(100) NOT NULL,
+    city VARCHAR(100) NOT NULL,
+    address TEXT NOT NULL,
+    latitude DOUBLE PRECISION DEFAULT 13.0827,
+    longitude DOUBLE PRECISION DEFAULT 80.2707,
+    is_verified BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS blood_bank_stock (
+    id SERIAL PRIMARY KEY,
+    blood_bank_id INT NOT NULL REFERENCES blood_banks(id) ON DELETE CASCADE,
+    blood_group VARCHAR(5) NOT NULL CHECK (blood_group IN ('A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-')),
+    component VARCHAR(40) NOT NULL CHECK (component IN ('Whole Blood', 'Red Cells', 'Platelets', 'Plasma')),
+    units_available INT NOT NULL DEFAULT 0 CHECK (units_available >= 0),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (blood_bank_id, blood_group, component)
+);
+
+-- Flask accesses these tables through its server-side database connection only.
+-- Do not expose account hashes or inventory tables directly through the Data API.
+ALTER TABLE blood_banks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE blood_bank_stock ENABLE ROW LEVEL SECURITY;
+
 -- ==========================================================
 -- Pre-seeded Sample Data for Immediate Viva & Demo Testing
 -- ==========================================================

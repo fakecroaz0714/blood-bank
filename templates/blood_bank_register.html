@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}Register Blood Bank - BloodConnect{% endblock %}
+{% block content %}
+<div class="container py-5" style="max-width: 760px"><div class="card border-0 shadow-sm rounded-4"><div class="card-body p-4 p-md-5">
+    <span class="badge bg-danger-subtle text-danger mb-2">BLOOD BANK PARTNER</span><h1 class="h3 fw-bold">Register your blood bank</h1><p class="text-muted">An administrator will verify your centre before stock becomes visible to the public.</p>
+    <form method="POST" class="row g-3">
+        <div class="col-md-6"><label class="form-label fw-semibold">Blood bank name</label><input class="form-control" name="name" required maxlength="160"></div>
+        <div class="col-md-6"><label class="form-label fw-semibold">Official email</label><input class="form-control" type="email" name="email" required maxlength="160"></div>
+        <div class="col-md-6"><label class="form-label fw-semibold">Contact phone</label><input class="form-control" name="phone" required maxlength="40"></div>
+        <div class="col-md-6"><label class="form-label fw-semibold">Blood centre licence number</label><input class="form-control" name="license_number" required maxlength="100"></div>
+        <div class="col-md-6"><label class="form-label fw-semibold">City</label><input class="form-control" name="city" required maxlength="100"></div>
+        <div class="col-12"><label class="form-label fw-semibold">Address</label><input class="form-control" name="address" required maxlength="500"></div>
+        <div class="col-md-6"><label class="form-label fw-semibold">Password (10+ characters)</label><input class="form-control" type="password" name="password" required minlength="10" autocomplete="new-password"></div>
+        <div class="col-12 d-flex gap-2"><button class="btn btn-blood fw-bold" type="submit">Submit for verification</button><a class="btn btn-outline-secondary" href="{{ url_for('blood_bank_login') }}">Already registered? Sign in</a></div>
+    </form>
+</div></div></div>
+{% endblock %}

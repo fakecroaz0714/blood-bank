@@ -45,6 +45,11 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'blood_banks' %}active{% endif %}" href="{{ url_for('blood_banks') }}">
+                            <i class="bi bi-hospital me-1"></i> Blood Bank Stock
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {% if request.endpoint in ['requests_list', 'emergency_request_new', 'request_details'] %}active{% endif %}" href="{{ url_for('requests_list') }}">
                             <i class="bi bi-heart-pulse me-1"></i> Emergency Requests
                         </a>
@@ -63,9 +68,9 @@
                         </a>
                     </li>
 
-                    {% if session.get('user_id') %}
+                    {% if session.get('user_id') or session.get('blood_bank_id') %}
                         <!-- Notifications -->
-                        <li class="nav-item me-2">
+                        {% if session.get('user_id') %}<li class="nav-item me-2">
                             <a href="{{ url_for('notifications_view') }}" class="btn btn-light position-relative border-0 rounded-circle p-2" title="Notifications">
                                 <i class="bi bi-bell-fill fs-5 text-secondary"></i>
                                 {% if unread_notif_count and unread_notif_count > 0 %}
@@ -74,7 +79,7 @@
                                     </span>
                                 {% endif %}
                             </a>
-                        </li>
+                        </li>{% endif %}
 
                         <!-- User Dropdown -->
                         <li class="nav-item dropdown">
@@ -90,6 +95,9 @@
                                 </li>
                                 {% if session.get('user_role') == 'donor' %}
                                     <li><a class="dropdown-item" href="{{ url_for('donor_profile') }}"><i class="bi bi-person-badge me-2 text-danger"></i> Donor Profile & Status</a></li>
+                                {% endif %}
+                                {% if session.get('user_role') == 'blood_bank' %}
+                                    <li><a class="dropdown-item" href="{{ url_for('blood_bank_dashboard') }}"><i class="bi bi-hospital me-2 text-danger"></i> Inventory Dashboard</a></li>
                                 {% endif %}
                                 {% if session.get('user_role') == 'admin' %}
                                     <li><a class="dropdown-item" href="{{ url_for('admin_dashboard') }}"><i class="bi bi-speedometer2 me-2 text-primary"></i> Admin Control Panel</a></li>
@@ -110,6 +118,7 @@
                                 <i class="bi bi-person-plus-fill me-1"></i> Register
                             </a>
                         </li>
+                        <li class="nav-item"><a class="nav-link small" href="{{ url_for('blood_bank_login') }}">Blood bank portal</a></li>
                     {% endif %}
                 </ul>
             </div>
@@ -157,6 +166,7 @@
                     <h6 class="text-white fw-bold mb-3">Quick Links</h6>
                     <ul class="list-unstyled small">
                         <li class="mb-2"><a href="{{ url_for('search_donors') }}">Find Donors</a></li>
+                        <li class="mb-2"><a href="{{ url_for('blood_banks') }}">Live Blood Bank Stock</a></li>
                         <li class="mb-2"><a href="{{ url_for('emergency_request_new') }}">Post Emergency Request</a></li>
                         <li class="mb-2"><a href="{{ url_for('compatibility') }}">Blood Compatibility</a></li>
                         <li class="mb-2"><a href="{{ url_for('register') }}">Become a Donor</a></li>
@@ -168,6 +178,7 @@
                         <li class="mb-2"><a href="{{ url_for('quick_login', role='admin') }}">Admin Portal</a></li>
                         <li class="mb-2"><a href="{{ url_for('register') }}">Register Live Donor</a></li>
                         <li class="mb-2"><a href="{{ url_for('login') }}">Sign In</a></li>
+                        <li class="mb-2"><a href="{{ url_for('blood_bank_register') }}">Register a Blood Bank</a></li>
                         <li class="mb-2"><a href="{{ url_for('requests_list') }}">Live Blood Feed</a></li>
                     </ul>
                 </div>

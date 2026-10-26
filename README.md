@@ -71,6 +71,12 @@ Visit: **[http://127.0.0.1:5050](http://127.0.0.1:5050)**
 
 ## Database Architecture
 
+### Live Blood Bank Inventory
+
+Blood bank stock is stored separately from volunteer donor profiles. Centres can register at `/blood-banks/register`; an administrator verifies the centre from the **Blood Banks** tab in `/admin`. After approval, centre staff sign in at `/blood-banks/login` and report units by blood group and component. Public results are available at `/blood-banks`, and `/api/blood-banks/inventory` returns the current filtered inventory as JSON. The page refreshes that endpoint every 30 seconds and displays each record's update time, flagging reports older than 24 hours.
+
+This is a live reporting workflow for participating centres; it does not automatically import stock from e-RaktKosh or hospital systems. Connect an upstream feed only after its operator provides an authorized API or data feed and credentials. Until then, inventory must be maintained by verified centre staff, and users should call the centre to confirm before travelling.
+
 ### Entity Relationship & Tables
 
 ```text

@@ -71,3 +71,31 @@ CREATE TABLE `notifications` (
 -- Search indices
 CREATE INDEX `idx_donors_search` ON `donors`(`blood_group`, `city`, `is_available`, `is_verified`);
 CREATE INDEX `idx_requests_status` ON `blood_requests`(`status`, `urgency`, `blood_group`);
+
+-- Blood-bank inventory, separate from volunteer donors.
+CREATE TABLE IF NOT EXISTS `blood_banks` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `name` VARCHAR(160) NOT NULL,
+    `email` VARCHAR(160) NOT NULL UNIQUE,
+    `phone` VARCHAR(40) NOT NULL,
+    `password_hash` VARCHAR(255) NOT NULL,
+    `license_number` VARCHAR(100) NOT NULL,
+    `city` VARCHAR(100) NOT NULL,
+    `address` TEXT NOT NULL,
+    `latitude` DECIMAL(10, 7) DEFAULT 13.0827,
+    `longitude` DECIMAL(10, 7) DEFAULT 80.2707,
+    `is_verified` TINYINT(1) NOT NULL DEFAULT 0,
+    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `blood_bank_stock` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `blood_bank_id` INT NOT NULL,
+    `blood_group` VARCHAR(5) NOT NULL,
+    `component` VARCHAR(40) NOT NULL,
+    `units_available` INT NOT NULL DEFAULT 0,
+    `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY `uq_bank_stock` (`blood_bank_id`, `blood_group`, `component`),
+    CONSTRAINT `chk_bank_stock_units` CHECK (`units_available` >= 0),
+    CONSTRAINT `fk_stock_bank` FOREIGN KEY (`blood_bank_id`) REFERENCES `blood_banks`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

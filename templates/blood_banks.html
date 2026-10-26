@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% block title %}Live Blood Bank Stock - BloodConnect{% endblock %}
+{% block content %}
+<div class="container py-4" id="inventoryPage" data-api-url="{{ url_for('api_blood_bank_inventory', blood_group=selected_blood_group, city=selected_city, component=selected_component) }}">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mb-4">
+        <div>
+            <span class="badge bg-danger-subtle text-danger mb-2">LIVE BLOOD BANK STOCK</span>
+            <h1 class="fw-bold mb-1">Find blood near you</h1>
+            <p class="text-muted mb-0">Inventory is reported by participating blood banks. Call to confirm before travelling.</p>
+        </div>
+        <div class="small text-muted"><span class="spinner-grow spinner-grow-sm text-success" aria-hidden="true"></span> Auto-refreshes every 30 seconds</div>
+    </div>
+
+    <form method="GET" class="card border-0 shadow-sm rounded-4 mb-4"><div class="card-body p-3"><div class="row g-3 align-items-end">
+        <div class="col-md-3"><label class="form-label fw-semibold">Blood group</label><select class="form-select" name="blood_group"><option value="">Any</option>{% for bg in blood_groups %}<option value="{{ bg }}" {% if selected_blood_group == bg %}selected{% endif %}>{{ bg }}</option>{% endfor %}</select></div>
+        <div class="col-md-3"><label class="form-label fw-semibold">Component</label><select class="form-select" name="component"><option value="">Any component</option>{% for item in components %}<option value="{{ item }}" {% if selected_component == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></div>
+        <div class="col-md-4"><label class="form-label fw-semibold">City</label><input class="form-control" name="city" value="{{ selected_city }}" placeholder="e.g. Chennai"></div>
+        <div class="col-md-2 d-grid"><button class="btn btn-blood fw-bold" type="submit"><i class="bi bi-search me-1"></i> Search</button></div>
+    </div></div></form>
+
+    <div class="d-flex justify-content-between align-items-center mb-3"><h2 class="h5 fw-bold mb-0">Available stock <span class="badge bg-secondary rounded-pill" id="inventoryCount">{{ inventory|length }}</span></h2><span class="small text-muted" id="refreshStatus" aria-live="polite">Showing latest reported stock</span></div>
+    <div class="row g-3" id="inventoryResults">
+        {% for item in inventory %}
+        <div class="col-md-6 col-xl-4"><article class="card border-0 shadow-sm rounded-4 h-100"><div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-start mb-3"><span class="badge bg-danger fs-5">{{ item.blood_group }}</span><span class="badge bg-light text-dark">{{ item.component }}</span></div>
+            <h3 class="h5 fw-bold mb-1">{{ item.bank_name }}</h3><p class="text-muted small mb-3"><i class="bi bi-geo-alt-fill text-danger me-1"></i>{{ item.city }}{% if item.address %} · {{ item.address }}{% endif %}</p>
+            <div class="d-flex justify-content-between align-items-center border-top pt-3"><div><strong class="fs-4 text-success">{{ item.units_available }}</strong><span class="small text-muted ms-1">unit(s)</span><div class="small {% if item.is_stale %}text-danger{% else %}text-muted{% endif %}">{% if item.is_stale %}Update is over 24 hours old{% else %}Updated {{ item.updated_at }}{% endif %}</div></div><a class="btn btn-outline-danger btn-sm" href="tel:{{ item.phone }}"><i class="bi bi-telephone-fill me-1"></i>Call bank</a></div>
+        </div></article></div>
+        {% else %}
+        <div class="col-12" id="inventoryEmpty"><div class="card border-0 bg-light rounded-4"><div class="card-body p-5 text-center"><i class="bi bi-droplet-half text-danger fs-1"></i><h3 class="h5 fw-bold mt-2">No matching stock reported</h3><p class="text-muted mb-0">Try another location or check again soon. For emergencies, contact a nearby blood bank directly.</p></div></div></div>
+        {% endfor %}
+    </div>
+    <div class="alert alert-warning mt-4 small"><i class="bi bi-exclamation-triangle-fill me-1"></i> Availability can change quickly. This listing is informational and does not reserve blood or replace confirmation from the blood bank.</div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+(() => {
+    const page = document.getElementById('inventoryPage');
+    const results = document.getElementById('inventoryResults');
+    const count = document.getElementById('inventoryCount');
+    const status = document.getElementById('refreshStatus');
+    const apiUrl = page.dataset.apiUrl;
+    const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const render = (rows) => {
+        count.textContent = rows.length;
+        results.innerHTML = rows.length ? rows.map((item) => `
+            <div class="col-md-6 col-xl-4"><article class="card border-0 shadow-sm rounded-4 h-100"><div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-start mb-3"><span class="badge bg-danger fs-5">${escapeHtml(item.blood_group)}</span><span class="badge bg-light text-dark">${escapeHtml(item.component)}</span></div>
+                <h3 class="h5 fw-bold mb-1">${escapeHtml(item.bank_name)}</h3><p class="text-muted small mb-3"><i class="bi bi-geo-alt-fill text-danger me-1"></i>${escapeHtml(item.city)}${item.address ? ` · ${escapeHtml(item.address)}` : ''}</p>
+                <div class="d-flex justify-content-between align-items-center border-top pt-3"><div><strong class="fs-4 text-success">${escapeHtml(item.units_available)}</strong><span class="small text-muted ms-1">unit(s)</span><div class="small ${item.is_stale ? 'text-danger' : 'text-muted'}">${item.is_stale ? 'Update is over 24 hours old' : `Updated ${escapeHtml(item.updated_at)}`}</div></div><a class="btn btn-outline-danger btn-sm" href="tel:${escapeHtml(item.phone)}"><i class="bi bi-telephone-fill me-1"></i>Call bank</a></div>
+            </div></article></div>`).join('') : '<div class="col-12"><div class="card border-0 bg-light rounded-4"><div class="card-body p-5 text-center"><i class="bi bi-droplet-half text-danger fs-1"></i><h3 class="h5 fw-bold mt-2">No matching stock reported</h3><p class="text-muted mb-0">Try another location or check again soon. For emergencies, contact a nearby blood bank directly.</p></div></div></div>';
+    };
+    window.setInterval(async () => {
+        try {
+            const response = await fetch(apiUrl, {cache: 'no-store', headers: {'Accept': 'application/json'}});
+            if (!response.ok) throw new Error('Inventory refresh failed');
+            const payload = await response.json();
+            render(payload.inventory || []);
+            status.textContent = `Refreshed ${new Date().toLocaleTimeString()}`;
+        } catch (_) {
+            status.textContent = 'Live refresh unavailable; showing last loaded results';
+        }
+    }, 30000);
+})();
+</script>
+{% endblock %}

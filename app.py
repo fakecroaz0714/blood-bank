@@ -10,7 +10,7 @@ from auth_utils import generate_password_hash, check_password_hash
 
 from database import (
     get_db, close_db, init_db, query_db,
-    execute_db, ensure_blood_bank_tables
+    execute_db, ensure_blood_bank_tables, is_using_postgres
 )
 import whatsapp_service
 
@@ -28,8 +28,21 @@ def ensure_live_inventory_schema():
     """Apply the additive inventory schema once per app instance, including on Vercel."""
     global _blood_bank_schema_ready
     if not _blood_bank_schema_ready:
+        # Vercel's deployment bundle is read-only. Never try to migrate its SQLite file.
+        # A managed Postgres URL is required for persistent production inventory.
+        if os.environ.get('VERCEL') == '1' and not is_using_postgres():
+            app.logger.error('Persistent Postgres is not configured; skipping inventory schema setup on Vercel.')
+            _blood_bank_schema_ready = True
+            return
         ensure_blood_bank_tables()
         _blood_bank_schema_ready = True
+
+def inventory_database_available():
+    """SQLite is supported locally; Vercel needs writable, shared Postgres storage."""
+    return not (os.environ.get('VERCEL') == '1' and not is_using_postgres())
+
+def inventory_database_setup_response():
+    return render_template('database_setup.html'), 503
 
 # Auto-close database connection on request teardown
 app.teardown_appcontext(close_db)
@@ -402,6 +415,8 @@ def _inventory_rows(blood_group='', city='', component=''):
 
 @app.route('/blood-banks')
 def blood_banks():
+    if not inventory_database_available():
+        return inventory_database_setup_response()
     blood_group = request.args.get('blood_group', '').strip()
     city = request.args.get('city', '').strip()
     component = request.args.get('component', '').strip()
@@ -415,6 +430,8 @@ def blood_banks():
 
 @app.route('/api/blood-banks/inventory')
 def api_blood_bank_inventory():
+    if not inventory_database_available():
+        return jsonify({'error': 'Configure a Postgres DATABASE_URL or POSTGRES_URL to enable blood bank inventory.'}), 503
     inventory = _inventory_rows(
         request.args.get('blood_group', '').strip(),
         request.args.get('city', '').strip(),
@@ -426,6 +443,8 @@ def api_blood_bank_inventory():
 
 @app.route('/blood-banks/register', methods=['GET', 'POST'])
 def blood_bank_register():
+    if not inventory_database_available():
+        return inventory_database_setup_response()
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
         email = request.form.get('email', '').strip().lower()
@@ -453,6 +472,8 @@ def blood_bank_register():
 
 @app.route('/blood-banks/login', methods=['GET', 'POST'])
 def blood_bank_login():
+    if not inventory_database_available():
+        return inventory_database_setup_response()
     if request.method == 'POST':
         email = request.form.get('email', '').strip().lower()
         password = request.form.get('password', '')
@@ -472,6 +493,8 @@ def blood_bank_login():
 @app.route('/blood-banks/dashboard', methods=['GET', 'POST'])
 @blood_bank_required
 def blood_bank_dashboard():
+    if not inventory_database_available():
+        return inventory_database_setup_response()
     bank_id = session['blood_bank_id']
     bank = query_db('SELECT * FROM blood_banks WHERE id = ?', (bank_id,), one=True)
     if not bank:
@@ -937,7 +960,7 @@ def admin_dashboard():
     requests = query_db("SELECT * FROM blood_requests ORDER BY created_at DESC") or []
 
     # Blood centres publish inventory only after administrator verification.
-    blood_banks = query_db("SELECT * FROM blood_banks ORDER BY is_verified ASC, created_at DESC") or []
+    blood_banks = query_db("SELECT * FROM blood_banks ORDER BY is_verified ASC, created_at DESC") or [] if inventory_database_available() else []
 
     # 4. Users Table
     users = query_db("SELECT id, name, email, phone, role, created_at FROM users ORDER BY created_at DESC") or []
@@ -954,6 +977,8 @@ def admin_dashboard():
 @app.route('/admin/blood-bank/<int:bank_id>/verify', methods=['POST'])
 @admin_required
 def admin_verify_blood_bank(bank_id):
+    if not inventory_database_available():
+        return inventory_database_setup_response()
     bank = query_db('SELECT * FROM blood_banks WHERE id = ?', (bank_id,), one=True)
     if not bank:
         flash('Blood bank record not found.', 'danger')

@@ -18,8 +18,12 @@ SCHEMA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'schema.s
 SCHEMA_PG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'schema_supabase.sql')
 
 def get_database_url():
-    """Dynamically get the current DATABASE_URL from environment."""
-    return (os.environ.get('DATABASE_URL') or '').strip()
+    """Read common managed-Postgres environment variable names."""
+    for key in ('DATABASE_URL', 'POSTGRES_URL', 'POSTGRES_PRISMA_URL', 'POSTGRES_URL_NON_POOLING', 'SUPABASE_DB_URL'):
+        value = (os.environ.get(key) or '').strip()
+        if value:
+            return value
+    return ''
 
 def is_using_postgres():
     db_url = get_database_url()

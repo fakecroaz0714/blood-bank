@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}Database Setup Required - BloodConnect{% endblock %}
+{% block content %}
+<div class="container py-5" style="max-width: 760px">
+    <div class="card border-0 shadow-sm rounded-4"><div class="card-body p-4 p-md-5">
+        <span class="badge bg-warning-subtle text-dark mb-2">DATABASE SETUP REQUIRED</span>
+        <h1 class="h3 fw-bold">Persistent database not connected</h1>
+        <p class="text-muted">Vercel’s app filesystem is read-only and its SQLite file cannot store live blood bank updates. Connect a managed PostgreSQL database to the Vercel project to enable inventory and other data changes.</p>
+        <ol class="mb-4">
+            <li>Add <code>DATABASE_URL</code> or <code>POSTGRES_URL</code> in Vercel Project Settings → Environment Variables.</li>
+            <li>Use the connection string for your Supabase or Vercel Postgres database, with a password URL-encoded if needed.</li>
+            <li>Redeploy. The app will create the additive blood bank tables on its first request.</li>
+        </ol>
+        <a class="btn btn-blood fw-bold" href="{{ url_for('index') }}">Back to home</a>
+    </div></div>
+</div>
+{% endblock %}

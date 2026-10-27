@@ -77,6 +77,8 @@ Blood bank stock is stored separately from volunteer donor profiles. Centres can
 
 This is a live reporting workflow for participating centres; it does not automatically import stock from e-RaktKosh or hospital systems. Connect an upstream feed only after its operator provides an authorized API or data feed and credentials. Until then, inventory must be maintained by verified centre staff, and users should call the centre to confirm before travelling.
 
+On Vercel, configure `DATABASE_URL` or `POSTGRES_URL` to point to managed PostgreSQL (for example, the app's Supabase database). Vercel's bundled SQLite file is read-only and is not suitable for persistent inventory updates. Without a Postgres URL, the home page remains available and inventory pages show database setup instructions.
+
 ### Entity Relationship & Tables
 
 ```text

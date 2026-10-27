@@ -151,6 +151,14 @@ def blood_bank_required(f):
 
 @app.route('/')
 def index():
+    if request.args.get('debug') == '1':
+        return {
+            'path': request.path,
+            'environ_path_info': request.environ.get('PATH_INFO'),
+            'environ_query': request.environ.get('QUERY_STRING'),
+            'environ_headers': {k: str(v) for k, v in request.environ.items() if k.startswith('HTTP_')}
+        }
+
     # 1. Fetch live metrics
     r_total = query_db("SELECT COUNT(*) as cnt FROM donors", one=True)
     r_verified = query_db("SELECT COUNT(*) as cnt FROM donors WHERE is_verified = TRUE", one=True)

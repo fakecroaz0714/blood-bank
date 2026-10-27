@@ -196,6 +196,39 @@ def seed():
             'verification'
         ))
 
+    # 6. Blood Banks & Stock
+    bank_pw = generate_password_hash('password123')
+    bank1_id = execute_db("""
+        INSERT INTO blood_banks (name, email, phone, password_hash, license_number, city, address, latitude, longitude, is_verified)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE)
+    """, ('City Central Blood Centre', 'central@bank.org', '+91 98401 99999', bank_pw, 'LIC-TN-CHE-2026', 'Chennai', '123 Hospital Road, Thousand Lights', 13.0600, 80.2500))
+
+    bank2_id = execute_db("""
+        INSERT INTO blood_banks (name, email, phone, password_hash, license_number, city, address, latitude, longitude, is_verified)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE)
+    """, ('Bangalore Metro Blood Bank', 'metro@bank.org', '+91 98000 88888', bank_pw, 'LIC-KA-BLR-2026', 'Bangalore', '45 Indiranagar 100ft Road', 12.9716, 77.5946))
+
+    bank3_id = execute_db("""
+        INSERT INTO blood_banks (name, email, phone, password_hash, license_number, city, address, latitude, longitude, is_verified)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE)
+    """, ('Apollo Life Blood Centre', 'apollo@bank.org', '+91 98401 11222', bank_pw, 'LIC-TN-CHE-9999', 'Chennai', '21 Greams Lane, Thousand Lights', 13.0580, 80.2520))
+
+    stock_items = [
+        (bank1_id, 'O+', 'Whole Blood', 15),
+        (bank1_id, 'A+', 'Red Cells', 10),
+        (bank1_id, 'B+', 'Platelets', 8),
+        (bank1_id, 'O-', 'Whole Blood', 4),
+        (bank2_id, 'A+', 'Whole Blood', 12),
+        (bank2_id, 'B+', 'Plasma', 6),
+        (bank2_id, 'AB+', 'Platelets', 5),
+    ]
+    for s in stock_items:
+        if s[0]:
+            execute_db("""
+                INSERT INTO blood_bank_stock (blood_bank_id, blood_group, component, units_available, updated_at)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+            """, s)
+
     print("Database seeded successfully with sample donors, requesters, admin, and blood requests!")
 
 def init_clean():

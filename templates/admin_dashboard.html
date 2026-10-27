@@ -180,9 +180,25 @@
                     <thead class="table-light"><tr><th>Blood Bank</th><th>City / Address</th><th>Contact</th><th>Licence</th><th>Status</th><th class="text-end">Action</th></tr></thead>
                     <tbody>{% for bank in blood_banks %}<tr>
                         <td><strong>{{ bank.name }}</strong><div class="small text-muted">{{ bank.email }}</div></td>
-                        <td>{{ bank.city }}<div class="small text-muted">{{ bank.address }}</div></td><td>{{ bank.phone }}</td><td>{{ bank.license_number }}</td>
+                        <td>{{ bank.city }}<div class="small text-muted">{{ bank.address }}</div></td>
+                        <td>{{ bank.phone }}</td>
+                        <td><span class="font-monospace small">{{ bank.license_number }}</span></td>
                         <td>{% if bank.is_verified %}<span class="badge bg-success">Verified</span>{% else %}<span class="badge bg-warning text-dark">Pending</span>{% endif %}</td>
-                        <td class="text-end"><form method="POST" action="{{ url_for('admin_verify_blood_bank', bank_id=bank.id) }}"><button class="btn btn-sm {% if bank.is_verified %}btn-outline-warning{% else %}btn-success{% endif %}" type="submit">{% if bank.is_verified %}Revoke{% else %}Verify centre{% endif %}</button></form></td>
+                        <td class="text-end">
+                            <div class="d-inline-flex gap-2">
+                                <form method="POST" action="{{ url_for('admin_verify_blood_bank', bank_id=bank.id) }}">
+                                    <button class="btn btn-sm {% if bank.is_verified %}btn-outline-warning{% else %}btn-success{% endif %}" type="submit">
+                                        {% if bank.is_verified %}<i class="bi bi-x-circle me-1"></i>Revoke{% else %}<i class="bi bi-check-lg me-1"></i>Verify{% endif %}
+                                    </button>
+                                </form>
+                                <form method="POST" action="{{ url_for('admin_delete_blood_bank', bank_id=bank.id) }}" onsubmit="return confirm('Are you sure you want to delete this blood bank?');">
+                                    <button class="btn btn-sm btn-outline-danger" type="submit" title="Delete Blood Bank">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+
                     </tr>{% else %}<tr><td colspan="6" class="text-center py-4 text-muted">No blood banks have registered yet.</td></tr>{% endfor %}</tbody>
                 </table></div>
             </div>

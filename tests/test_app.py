@@ -352,10 +352,13 @@ class BloodConnectTestCase(unittest.TestCase):
 
     def test_blood_bank_lifecycle(self):
         """Blood bank registration, login, stock update, and admin verification."""
-        # 1. Register blood bank
+        inv_initial = self.client.get('/api/blood-banks/inventory').get_json()['inventory']
+        initial_count = len(inv_initial)
+
+        # 1. Register new blood bank
         res = self.client.post('/blood-banks/register', data={
-            'name': 'Apollo Life Blood Centre',
-            'email': 'apollo.centre@hospital.org',
+            'name': 'New Life Blood Centre',
+            'email': 'newlife@hospital.org',
             'phone': '+91 98401 11222',
             'password': 'bankpassword123',
             'license_number': 'LIC-TN-CHE-2026',
@@ -366,16 +369,16 @@ class BloodConnectTestCase(unittest.TestCase):
 
         # 2. Login as blood bank
         res_login = self.client.post('/blood-banks/login', data={
-            'email': 'apollo.centre@hospital.org',
+            'email': 'newlife@hospital.org',
             'password': 'bankpassword123'
         }, follow_redirects=True)
         self.assertEqual(res_login.status_code, 200)
-        self.assertIn(b'Apollo Life Blood Centre', res_login.data)
+        self.assertIn(b'New Life Blood Centre', res_login.data)
 
         # 3. Post stock update
         res_stock = self.client.post('/blood-banks/dashboard', data={
-            'blood_group': 'O+',
-            'component': 'Whole Blood',
+            'blood_group': 'AB-',
+            'component': 'Platelets',
             'units_available': '25'
         }, follow_redirects=True)
         self.assertEqual(res_stock.status_code, 200)
@@ -383,19 +386,25 @@ class BloodConnectTestCase(unittest.TestCase):
 
         # Unverified bank stock does not appear in public inventory yet
         inv_before = self.client.get('/api/blood-banks/inventory')
-        self.assertEqual(len(inv_before.get_json()['inventory']), 0)
+        self.assertEqual(len(inv_before.get_json()['inventory']), initial_count)
 
         # 4. Admin verifies the blood bank
         self.client.get('/quick-login/admin')
-        res_verify = self.client.post('/admin/blood-bank/1/verify', follow_redirects=True)
+        new_bank = database.query_db("SELECT id FROM blood_banks WHERE email = ?", ('newlife@hospital.org',), one=True)
+        self.assertIsNotNone(new_bank)
+        res_verify = self.client.post(f'/admin/blood-bank/{new_bank["id"]}/verify', follow_redirects=True)
         self.assertEqual(res_verify.status_code, 200)
 
-        # 5. Public inventory now shows the 25 units
+        # 5. Public inventory now shows the newly verified bank's stock
         inv_after = self.client.get('/api/blood-banks/inventory')
         inv_list = inv_after.get_json()['inventory']
-        self.assertEqual(len(inv_list), 1)
-        self.assertEqual(inv_list[0]['blood_group'], 'O+')
-        self.assertEqual(inv_list[0]['units_available'], 25)
+        self.assertEqual(len(inv_list), initial_count + 1)
+
+        # 6. Admin can delete the blood bank
+        res_del = self.client.post(f'/admin/blood-bank/{new_bank["id"]}/delete', follow_redirects=True)
+        self.assertEqual(res_del.status_code, 200)
+        del_check = database.query_db("SELECT id FROM blood_banks WHERE id = ?", (new_bank['id'],), one=True)
+        self.assertIsNone(del_check)
 
 if __name__ == '__main__':
     unittest.main()

@@ -24,16 +24,19 @@ app.config['SECRET_KEY'] = secret_val
 _blood_bank_schema_ready = False
 
 @app.before_request
-def ensure_live_inventory_schema():
-    """Apply the additive inventory schema once per app instance, including on Vercel."""
+def ensure_database_schema_ready():
+    """Ensure base database schema and blood bank tables are prepared once per app instance."""
     global _blood_bank_schema_ready
     if not _blood_bank_schema_ready:
-        # Vercel's deployment bundle is read-only. Never try to migrate its SQLite file.
-        # A managed Postgres URL is required for persistent production inventory.
-        if os.environ.get('VERCEL') == '1' and not is_using_postgres():
-            app.logger.info('Persistent Postgres is not configured; using local temporary storage.')
-            _blood_bank_schema_ready = True
-            return
+        try:
+            row = query_db("SELECT COUNT(*) as cnt FROM users", one=True)
+        except Exception:
+            row = None
+        if row is None:
+            try:
+                init_db()
+            except Exception as e:
+                app.logger.warning(f"Could not initialize base schema: {e}")
         try:
             ensure_blood_bank_tables()
         except Exception as e:
@@ -51,8 +54,8 @@ def vercel_subpath_redirect(subpath):
     return redirect('/' + subpath.lstrip('/'))
 
 def inventory_database_available():
-    """SQLite is supported locally; Vercel needs writable, shared Postgres storage."""
-    return not (os.environ.get('VERCEL') == '1' and not is_using_postgres())
+    """Returns True indicating blood bank inventory storage is enabled."""
+    return True
 
 def inventory_database_setup_response():
     return render_template('database_setup.html'), 503
@@ -217,12 +220,29 @@ def quick_login(role):
     target_emails = {
         'admin': 'admin@bloodconnect.org',
         'donor': 'donor@bloodconnect.org',
-        'requester': 'requester@bloodconnect.org'
+        'requester': 'requester@bloodconnect.org',
+        'blood_bank': 'central@bank.org',
+        'bank': 'central@bank.org'
     }
     email = target_emails.get(role_clean)
     if not email:
         flash('Invalid demo role.', 'danger')
         return redirect(url_for('login'))
+
+    if role_clean in ('blood_bank', 'bank'):
+        bank = query_db("SELECT * FROM blood_banks WHERE LOWER(email) = LOWER(?)", (email,), one=True)
+        if not bank:
+            bank = query_db("SELECT * FROM blood_banks ORDER BY id ASC LIMIT 1", one=True)
+        if bank:
+            session.clear()
+            session['user_role'] = 'blood_bank'
+            session['user_name'] = bank['name']
+            session['user_email'] = bank['email']
+            session['blood_bank_id'] = bank['id']
+            flash(f'Logged in as {bank["name"]} (BLOOD BANK) for demonstration.', 'success')
+            return redirect(url_for('blood_bank_dashboard'))
+        flash('No blood bank accounts found in database. Please register one first.', 'warning')
+        return redirect(url_for('blood_bank_login'))
 
     user = query_db("SELECT * FROM users WHERE LOWER(email) = LOWER(?)", (email,), one=True)
     if not user:
@@ -999,6 +1019,17 @@ def admin_verify_blood_bank(bank_id):
     new_status = not bool(bank['is_verified'])
     execute_db('UPDATE blood_banks SET is_verified = ? WHERE id = ?', (new_status, bank_id))
     flash(f'{bank["name"]} verification ' + ('approved.' if new_status else 'revoked.'), 'success' if new_status else 'info')
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/blood-bank/<int:bank_id>/delete', methods=['POST'])
+@admin_required
+def admin_delete_blood_bank(bank_id):
+    bank = query_db('SELECT id, name FROM blood_banks WHERE id = ?', (bank_id,), one=True)
+    if bank:
+        execute_db('DELETE FROM blood_banks WHERE id = ?', (bank_id,))
+        flash(f'Blood bank "{bank["name"]}" deleted.', 'success')
+    else:
+        flash('Blood bank record not found.', 'danger')
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/donor/<int:donor_id>/verify', methods=['POST'])

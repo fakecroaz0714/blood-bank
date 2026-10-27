@@ -4,6 +4,8 @@
 -- ==========================================================
 
 -- Clean existing tables if any
+DROP TABLE IF EXISTS blood_bank_stock CASCADE;
+DROP TABLE IF EXISTS blood_banks CASCADE;
 DROP TABLE IF EXISTS notifications CASCADE;
 DROP TABLE IF EXISTS blood_requests CASCADE;
 DROP TABLE IF EXISTS donors CASCADE;

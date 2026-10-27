@@ -1,6 +1,9 @@
 -- BloodConnect SQLite Database Schema
 -- Compatible with SQLite 3
 
+-- Clean existing tables if any
+DROP TABLE IF EXISTS blood_bank_stock;
+DROP TABLE IF EXISTS blood_banks;
 DROP TABLE IF EXISTS notifications;
 DROP TABLE IF EXISTS blood_requests;
 DROP TABLE IF EXISTS donors;

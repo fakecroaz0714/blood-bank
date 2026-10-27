@@ -57,7 +57,13 @@ def get_db(db_path=None):
         import psycopg2
         import psycopg2.extras
         db_url = get_database_url()
-        conn = psycopg2.connect(db_url, cursor_factory=psycopg2.extras.RealDictCursor)
+        try:
+            conn = psycopg2.connect(db_url, cursor_factory=psycopg2.extras.RealDictCursor)
+        except Exception:
+            target_path = get_database_path(db_path)
+            conn = sqlite3.connect(target_path)
+            conn.row_factory = sqlite3.Row
+            conn.execute("PRAGMA foreign_keys = ON")
     else:
         target_path = get_database_path(db_path)
         conn = sqlite3.connect(target_path)
@@ -174,8 +180,9 @@ def query_db(query, args=(), one=False, db_path=None):
     in_ctx = has_app_context()
     conn = get_db(db_path)
     cur = conn.cursor()
+    using_postgres = not isinstance(conn, sqlite3.Connection)
     try:
-        if is_using_postgres():
+        if using_postgres:
             pg_query = _normalize_pg_query(query)
             cur.execute(pg_query, args)
             rows = cur.fetchall()
@@ -198,8 +205,9 @@ def execute_db(query, args=(), db_path=None):
     in_ctx = has_app_context()
     conn = get_db(db_path)
     cur = conn.cursor()
+    using_postgres = not isinstance(conn, sqlite3.Connection)
     try:
-        if is_using_postgres():
+        if using_postgres:
             pg_query = _normalize_pg_query(query)
             trimmed = pg_query.strip().rstrip(';').strip()
             has_returning = 'RETURNING' in trimmed.upper()

@@ -31,11 +31,24 @@ def ensure_live_inventory_schema():
         # Vercel's deployment bundle is read-only. Never try to migrate its SQLite file.
         # A managed Postgres URL is required for persistent production inventory.
         if os.environ.get('VERCEL') == '1' and not is_using_postgres():
-            app.logger.error('Persistent Postgres is not configured; skipping inventory schema setup on Vercel.')
+            app.logger.info('Persistent Postgres is not configured; using local temporary storage.')
             _blood_bank_schema_ready = True
             return
-        ensure_blood_bank_tables()
+        try:
+            ensure_blood_bank_tables()
+        except Exception as e:
+            app.logger.warning(f"Could not initialize blood bank tables on startup: {e}")
         _blood_bank_schema_ready = True
+
+@app.route('/api/index')
+@app.route('/api/index.py')
+def vercel_entrypoint_redirect():
+    return index()
+
+@app.route('/api/index/<path:subpath>')
+@app.route('/api/index.py/<path:subpath>')
+def vercel_subpath_redirect(subpath):
+    return redirect('/' + subpath.lstrip('/'))
 
 def inventory_database_available():
     """SQLite is supported locally; Vercel needs writable, shared Postgres storage."""

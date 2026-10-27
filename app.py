@@ -1093,4 +1093,5 @@ def internal_error(error):
 if __name__ == '__main__':
     # Initialize DB if not exists
     port = int(os.environ.get('PORT', 5050))
-    app.run(debug=False, host='127.0.0.1', port=port)
+    host = os.environ.get('HOST', '0.0.0.0')
+    app.run(debug=False, host=host, port=port)

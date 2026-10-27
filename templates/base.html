@@ -85,7 +85,7 @@
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle d-flex align-items-center gap-2 py-1 px-2 border rounded-pill bg-white" href="#" data-bs-toggle="dropdown">
                                 <div class="bg-danger text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; font-weight: 700; font-size: 0.85rem;">
-                                    {{ session.get('user_name', 'U')[0].upper() }}
+                                    {{ (session.get('user_name') or 'U')[0].upper() }}
                                 </div>
                                 <span class="fw-semibold text-truncate" style="max-width: 120px;">{{ session.get('user_name') }}</span>
                             </a>

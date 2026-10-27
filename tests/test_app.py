@@ -350,5 +350,53 @@ class BloodConnectTestCase(unittest.TestCase):
             count = database.query_db("SELECT COUNT(*) as cnt FROM users", one=True)
             self.assertGreater(count['cnt'], 0)
 
+    def test_blood_bank_lifecycle(self):
+        """Blood bank registration, login, stock update, and admin verification."""
+        # 1. Register blood bank
+        res = self.client.post('/blood-banks/register', data={
+            'name': 'Apollo Life Blood Centre',
+            'email': 'apollo.centre@hospital.org',
+            'phone': '+91 98401 11222',
+            'password': 'bankpassword123',
+            'license_number': 'LIC-TN-CHE-2026',
+            'city': 'Chennai',
+            'address': '21 Greams Lane, Thousand Lights'
+        }, follow_redirects=True)
+        self.assertEqual(res.status_code, 200)
+
+        # 2. Login as blood bank
+        res_login = self.client.post('/blood-banks/login', data={
+            'email': 'apollo.centre@hospital.org',
+            'password': 'bankpassword123'
+        }, follow_redirects=True)
+        self.assertEqual(res_login.status_code, 200)
+        self.assertIn(b'Apollo Life Blood Centre', res_login.data)
+
+        # 3. Post stock update
+        res_stock = self.client.post('/blood-banks/dashboard', data={
+            'blood_group': 'O+',
+            'component': 'Whole Blood',
+            'units_available': '25'
+        }, follow_redirects=True)
+        self.assertEqual(res_stock.status_code, 200)
+        self.assertIn(b'stock updated to 25 unit(s)', res_stock.data)
+
+        # Unverified bank stock does not appear in public inventory yet
+        inv_before = self.client.get('/api/blood-banks/inventory')
+        self.assertEqual(len(inv_before.get_json()['inventory']), 0)
+
+        # 4. Admin verifies the blood bank
+        self.client.get('/quick-login/admin')
+        res_verify = self.client.post('/admin/blood-bank/1/verify', follow_redirects=True)
+        self.assertEqual(res_verify.status_code, 200)
+
+        # 5. Public inventory now shows the 25 units
+        inv_after = self.client.get('/api/blood-banks/inventory')
+        inv_list = inv_after.get_json()['inventory']
+        self.assertEqual(len(inv_list), 1)
+        self.assertEqual(inv_list[0]['blood_group'], 'O+')
+        self.assertEqual(inv_list[0]['units_available'], 25)
+
 if __name__ == '__main__':
     unittest.main()
+

@@ -17,11 +17,30 @@ DATABASE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bloodc
 SCHEMA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'schema.sql')
 SCHEMA_PG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'schema_supabase.sql')
 
+def get_database_path(db_path=None):
+    """Returns target SQLite file path, using writable /tmp on Vercel if SQLite is used."""
+    if db_path:
+        return db_path
+    if os.environ.get('VERCEL') == '1' and not is_using_postgres():
+        tmp_db = '/tmp/bloodconnect.db'
+        if not os.path.exists(tmp_db) and os.path.exists(DATABASE_PATH):
+            import shutil
+            try:
+                shutil.copy2(DATABASE_PATH, tmp_db)
+            except Exception:
+                pass
+        return tmp_db
+    return DATABASE_PATH
+
 def get_database_url():
     """Read common managed-Postgres environment variable names."""
     for key in ('DATABASE_URL', 'POSTGRES_URL', 'POSTGRES_PRISMA_URL', 'POSTGRES_URL_NON_POOLING', 'SUPABASE_DB_URL'):
         value = (os.environ.get(key) or '').strip()
         if value:
+            # If remote PostgreSQL and sslmode is not explicitly configured, enforce sslmode=require
+            if ('localhost' not in value and '127.0.0.1' not in value) and 'sslmode=' not in value:
+                separator = '&' if '?' in value else '?'
+                value = f"{value}{separator}sslmode=require"
             return value
     return ''
 
@@ -40,7 +59,7 @@ def get_db(db_path=None):
         db_url = get_database_url()
         conn = psycopg2.connect(db_url, cursor_factory=psycopg2.extras.RealDictCursor)
     else:
-        target_path = db_path or DATABASE_PATH
+        target_path = get_database_path(db_path)
         conn = sqlite3.connect(target_path)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
@@ -72,12 +91,14 @@ def init_db(db_path=None):
         if is_using_postgres():
             with open(SCHEMA_PG_PATH, 'r', encoding='utf-8') as f:
                 cur.execute(f.read())
+            conn.commit()
             ensure_blood_bank_tables(conn, cur, postgres=True)
             conn.commit()
         else:
             with open(SCHEMA_PATH, 'r', encoding='utf-8') as f:
                 conn.executescript(f.read())
-            ensure_blood_bank_tables(conn, conn.cursor(), postgres=False)
+            conn.commit()
+            ensure_blood_bank_tables(conn, cur, postgres=False)
             conn.commit()
     except Exception:
         if conn:
@@ -91,9 +112,10 @@ def init_db(db_path=None):
 def ensure_blood_bank_tables(conn=None, cur=None, postgres=None):
     """Create the additive blood-bank inventory tables without touching existing data."""
     own_connection = conn is None
+    own_cursor = cur is None
     if own_connection:
         conn = get_db()
-    if cur is None:
+    if own_cursor:
         cur = conn.cursor()
     if postgres is None:
         postgres = is_using_postgres()
@@ -133,10 +155,17 @@ def ensure_blood_bank_tables(conn=None, cur=None, postgres=None):
         ])
     try:
         for statement in statements:
-            cur.execute(statement)
-        conn.commit()
+            try:
+                cur.execute(statement)
+                conn.commit()
+            except Exception:
+                conn.rollback()
+                # Ignore non-fatal DDL errors (such as RLS privilege or already active)
+                if 'ROW LEVEL SECURITY' not in statement:
+                    raise
     finally:
-        cur.close()
+        if own_cursor:
+            cur.close()
         if own_connection and not has_app_context():
             conn.close()
 
